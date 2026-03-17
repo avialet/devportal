@@ -1,7 +1,9 @@
 import * as coolify from './coolify.service.js';
 import * as monitoring from './monitoring.service.js';
+import { createWorkflowFile } from './github.service.js';
 import { runQuery, queryOne } from '../db/database.js';
 import { buildFqdn, ENV_NAMES, type EnvName } from '@devportal/shared';
+import { config } from '../config.js';
 
 export interface WizardInput {
   name: string;
@@ -9,6 +11,7 @@ export interface WizardInput {
   gitBranch?: string;
   portsExposes?: string;
   userId: number;
+  githubToken?: string | null;
 }
 
 export interface WizardStepUpdate {
@@ -146,6 +149,24 @@ export async function runWizard(
   } catch (err) {
     // Non-blocking
     onProgress({ step: 7, label: 'Creation des monitors', status: 'done', detail: `Warning: ${err}` });
+  }
+
+  // Step 7b: Create GitHub Actions workflow if user has GitHub token
+  if (input.githubToken) {
+    try {
+      const urlParts = githubUrl.replace('https://github.com/', '').split('/');
+      const [owner, repoName] = urlParts;
+      if (owner && repoName) {
+        await createWorkflowFile(
+          input.githubToken,
+          owner, repoName,
+          config.coolifyApiUrl,
+          apps.development?.uuid,
+          apps.staging?.uuid,
+          apps.production?.uuid
+        );
+      }
+    } catch { /* Non-blocking */ }
   }
 
   // Trigger initial deployments on dev + staging

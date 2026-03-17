@@ -8,6 +8,7 @@ import { buildFqdn, ENV_NAMES, type EnvName } from '@devportal/shared';
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
+import { generateCoolifyWorkflow } from '../services/github.service.js';
 
 function param(req: AuthRequest, name: string): string {
   const v = req.params[name];
@@ -274,6 +275,9 @@ router.post('/create', async (req: AuthRequest, res: Response): Promise<void> =>
   res.flushHeaders();
 
   try {
+    // Fetch user's GitHub token if available
+    const dbUser = queryOne<{ github_token: string | null }>('SELECT github_token FROM users WHERE id = ?', [req.user!.id]);
+
     const result = await runWizard(
       {
         name,
@@ -281,6 +285,7 @@ router.post('/create', async (req: AuthRequest, res: Response): Promise<void> =>
         gitBranch,
         portsExposes,
         userId: req.user!.id,
+        githubToken: dbUser?.github_token ?? null,
       },
       (update) => {
         res.write(`data: ${JSON.stringify(update)}\n\n`);
@@ -495,6 +500,20 @@ router.post('/:uuid/members', async (req: AuthRequest, res: Response): Promise<v
 });
 
 // Remove project member
+// GitHub Actions workflow YAML for a portal-managed project
+router.get('/:uuid/workflow', (req: AuthRequest, res: Response): void => {
+  const uuid = param(req, 'uuid');
+  const portal = queryOne<DbProject>('SELECT * FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+  if (!portal) { res.status(404).json({ error: 'not_found' }); return; }
+  const yaml = generateCoolifyWorkflow(
+    config.coolifyApiUrl,
+    portal.dev_app_uuid,
+    portal.staging_app_uuid,
+    portal.prod_app_uuid
+  );
+  res.json({ yaml, coolifyApiUrl: config.coolifyApiUrl });
+});
+
 router.delete('/:uuid/members/:memberId', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     runQuery('DELETE FROM project_members WHERE id = ?', [parseInt(param(req, 'memberId'))]);

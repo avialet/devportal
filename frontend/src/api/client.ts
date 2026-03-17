@@ -242,6 +242,31 @@ export const api = {
     return request<GitHubRepoInfo>('/github/repos', { method: 'POST', body: JSON.stringify(data) });
   },
 
+  // Profile
+  updateProfile(data: { displayName?: string; currentPassword?: string; newPassword?: string }) {
+    return request<{ user: { id: number; email: string; displayName: string; role: string } }>('/auth/profile', {
+      method: 'PUT', body: JSON.stringify(data),
+    });
+  },
+
+  // Config (alert webhooks)
+  getConfig() {
+    return request<Record<string, string>>('/config');
+  },
+  updateConfig(data: Record<string, string>) {
+    return request<{ status: string }>('/config', { method: 'PUT', body: JSON.stringify(data) });
+  },
+  testWebhook(url: string, type: string) {
+    return request<{ status: string }>('/config/test-webhook', {
+      method: 'POST', body: JSON.stringify({ url, type }),
+    });
+  },
+
+  // GitHub Actions workflow
+  getProjectWorkflow(uuid: string) {
+    return request<{ yaml: string; coolifyApiUrl: string }>(`/projects/${uuid}/workflow`);
+  },
+
   // Health
   getHealth() {
     return request<HealthResponse>('/health');

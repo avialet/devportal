@@ -96,6 +96,12 @@ CREATE TABLE IF NOT EXISTS monitor_checks (
   error TEXT,
   checked_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS config (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 let db: Database;

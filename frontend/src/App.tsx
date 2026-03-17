@@ -32,7 +32,7 @@ export default function App() {
         <Route path="/monitoring" element={<Monitoring />} />
         <Route path="/security" element={<Security />} />
         <Route path="/projects/:uuid" element={<ProjectDetail />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/settings" element={<Settings user={user} />} />
       </Routes>
     </Layout>
   );

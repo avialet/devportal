@@ -249,6 +249,69 @@ export async function createRepoWithBranches(
 }
 
 /**
+ * Generate a GitHub Actions workflow YAML for Coolify auto-deploy
+ */
+export function generateCoolifyWorkflow(
+  coolifyApiUrl: string,
+  devUuid?: string | null,
+  stagingUuid?: string | null,
+  prodUuid?: string | null
+): string {
+  const branches: string[] = [];
+  if (devUuid) branches.push('dev');
+  if (stagingUuid) branches.push('staging');
+  if (prodUuid) branches.push('main');
+
+  const makeStep = (label: string, branch: string, uuid: string) =>
+    `      - name: Deploy ${label}
+        if: github.ref_name == '${branch}'
+        run: |
+          curl -sf -X GET "${coolifyApiUrl}/deploy?uuid=${uuid}&force=true" \\
+            -H "Authorization: Bearer \${{ secrets.COOLIFY_TOKEN }}" || echo "deploy non-bloquant"`;
+
+  const steps = [
+    devUuid ? makeStep('DEV', 'dev', devUuid) : null,
+    stagingUuid ? makeStep('STAGING', 'staging', stagingUuid) : null,
+    prodUuid ? makeStep('PROD', 'main', prodUuid) : null,
+  ].filter(Boolean).join('\n');
+
+  return `name: Deploy via Coolify
+
+on:
+  push:
+    branches: [${branches.map(b => `'${b}'`).join(', ')}]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+${steps}
+`;
+}
+
+/**
+ * Create the CI workflow file in the repo (on main branch)
+ */
+export async function createWorkflowFile(
+  token: string,
+  owner: string,
+  repo: string,
+  coolifyApiUrl: string,
+  devUuid?: string | null,
+  stagingUuid?: string | null,
+  prodUuid?: string | null
+): Promise<void> {
+  const content = generateCoolifyWorkflow(coolifyApiUrl, devUuid, stagingUuid, prodUuid);
+  try {
+    await updateFile(token, owner, repo, '.github/workflows/deploy.yml', content,
+      'ci: add Coolify auto-deploy workflow', 'main');
+  } catch (err: any) {
+    console.error('[GitHub] Workflow file error:', err.message);
+  }
+}
+
+/**
  * Validate a GitHub token by calling /user
  */
 export async function validateToken(token: string): Promise<{ valid: boolean; login?: string; error?: string }> {

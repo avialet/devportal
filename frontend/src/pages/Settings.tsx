@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { api, type HealthResponse, type BackupInfo, type GitHubStatus } from '../api/client';
+import type { User } from '@devportal/shared';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -16,7 +17,7 @@ function formatUptime(seconds: number): string {
   return `${m}m`;
 }
 
-export default function Settings() {
+export default function Settings({ user }: { user?: User }) {
   const [health, setHealth] = useState<HealthResponse | null>(null);
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,15 +29,32 @@ export default function Settings() {
   const [savingToken, setSavingToken] = useState(false);
   const [tokenError, setTokenError] = useState('');
 
+  // Alert webhook state
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookType, setWebhookType] = useState('discord');
+  const [savingWebhook, setSavingWebhook] = useState(false);
+  const [testingWebhook, setTestingWebhook] = useState(false);
+  const [webhookMsg, setWebhookMsg] = useState('');
+
+  // Profile state
+  const [displayName, setDisplayName] = useState(user?.displayName ?? '');
+  const [currentPwd, setCurrentPwd] = useState('');
+  const [newPwd, setNewPwd] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileMsg, setProfileMsg] = useState('');
+
   useEffect(() => {
     Promise.all([
       api.getHealth().catch(() => null),
       api.getBackups().then(r => r.backups).catch(() => []),
       api.getGitHubStatus().catch(() => ({ configured: false } as GitHubStatus)),
-    ]).then(([h, b, gh]) => {
+      api.getConfig().catch(() => ({})),
+    ]).then(([h, b, gh, cfg]) => {
       setHealth(h);
       setBackups(b);
       setGhStatus(gh);
+      if (cfg['alert_webhook_url']) setWebhookUrl(cfg['alert_webhook_url']);
+      if (cfg['alert_webhook_type']) setWebhookType(cfg['alert_webhook_type']);
     }).finally(() => setLoading(false));
   }, []);
 
@@ -60,6 +78,44 @@ export default function Settings() {
     setGhStatus({ configured: false });
   }
 
+  async function handleSaveWebhook() {
+    setSavingWebhook(true);
+    setWebhookMsg('');
+    try {
+      await api.updateConfig({ alert_webhook_url: webhookUrl, alert_webhook_type: webhookType });
+      setWebhookMsg('✓ Sauvegarde');
+    } catch { setWebhookMsg('Erreur lors de la sauvegarde'); }
+    finally { setSavingWebhook(false); }
+  }
+
+  async function handleTestWebhook() {
+    setTestingWebhook(true);
+    setWebhookMsg('');
+    try {
+      await api.testWebhook(webhookUrl, webhookType);
+      setWebhookMsg('✓ Notification test envoyee !');
+    } catch (err: any) {
+      setWebhookMsg(`Erreur: ${err?.message ?? 'echec'}`);
+    } finally { setTestingWebhook(false); }
+  }
+
+  async function handleSaveProfile() {
+    setSavingProfile(true);
+    setProfileMsg('');
+    try {
+      await api.updateProfile({
+        displayName: displayName || undefined,
+        currentPassword: currentPwd || undefined,
+        newPassword: newPwd || undefined,
+      });
+      setProfileMsg('✓ Profil mis a jour');
+      setCurrentPwd('');
+      setNewPwd('');
+    } catch (err: any) {
+      setProfileMsg(err?.message ?? 'Erreur');
+    } finally { setSavingProfile(false); }
+  }
+
   async function handleCreateBackup() {
     setCreating(true);
     try {
@@ -81,6 +137,77 @@ export default function Settings() {
   return (
     <div className="space-y-4">
       <h1 className="text-sm font-semibold text-txt-primary">Parametres</h1>
+
+      {/* Profile */}
+      <div className="panel">
+        <div className="px-3 py-2 border-b border-border">
+          <h2 className="text-xs font-semibold text-txt-primary">Profil</h2>
+        </div>
+        <div className="px-3 py-3 space-y-3">
+          <div>
+            <label className="block text-2xs text-txt-muted mb-1">Nom d'affichage</label>
+            <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
+              placeholder={user?.displayName} className="input-field w-full" />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-2xs text-txt-muted mb-1">Mot de passe actuel</label>
+              <input type="password" value={currentPwd} onChange={e => setCurrentPwd(e.target.value)}
+                placeholder="••••••" className="input-field w-full" />
+            </div>
+            <div>
+              <label className="block text-2xs text-txt-muted mb-1">Nouveau mot de passe</label>
+              <input type="password" value={newPwd} onChange={e => setNewPwd(e.target.value)}
+                placeholder="••••••" className="input-field w-full" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={handleSaveProfile} disabled={savingProfile}
+              className="btn-primary disabled:opacity-50">
+              {savingProfile ? '...' : 'Enregistrer'}
+            </button>
+            {profileMsg && <span className={`text-2xs ${profileMsg.startsWith('✓') ? 'text-status-ok' : 'text-status-error'}`}>{profileMsg}</span>}
+          </div>
+        </div>
+      </div>
+
+      {/* Alert webhooks */}
+      <div className="panel">
+        <div className="px-3 py-2 border-b border-border">
+          <h2 className="text-xs font-semibold text-txt-primary">Alertes monitoring</h2>
+        </div>
+        <div className="px-3 py-3 space-y-3">
+          <p className="text-2xs text-txt-muted">
+            Notification Discord/Slack quand un monitor change d'etat (UP ↔ DOWN).
+          </p>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-2xs text-txt-muted mb-1">URL webhook</label>
+              <input type="text" value={webhookUrl} onChange={e => setWebhookUrl(e.target.value)}
+                placeholder="https://discord.com/api/webhooks/..." className="input-field w-full" />
+            </div>
+            <div className="w-28">
+              <label className="block text-2xs text-txt-muted mb-1">Type</label>
+              <select value={webhookType} onChange={e => setWebhookType(e.target.value)} className="input-field w-full">
+                <option value="discord">Discord</option>
+                <option value="slack">Slack</option>
+                <option value="webhook">JSON</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={handleSaveWebhook} disabled={savingWebhook || !webhookUrl}
+              className="btn-primary disabled:opacity-50">
+              {savingWebhook ? '...' : 'Sauvegarder'}
+            </button>
+            <button onClick={handleTestWebhook} disabled={testingWebhook || !webhookUrl}
+              className="btn-secondary disabled:opacity-50">
+              {testingWebhook ? '...' : 'Tester'}
+            </button>
+            {webhookMsg && <span className={`text-2xs ${webhookMsg.startsWith('✓') ? 'text-status-ok' : 'text-status-error'}`}>{webhookMsg}</span>}
+          </div>
+        </div>
+      </div>
 
       {/* GitHub token */}
       <div className="panel">

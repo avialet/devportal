@@ -177,4 +177,44 @@ router.get('/providers', (_req: AuthRequest, res: Response): void => {
   res.json({ oidc: isOidcConfigured() });
 });
 
+// Update profile (display_name + optional password change)
+router.put('/profile', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  const userId = req.user?.id;
+  if (!userId) { res.status(401).json({ error: 'unauthorized' }); return; }
+  const { displayName, currentPassword, newPassword } = req.body;
+
+  if (newPassword) {
+    const dbUser = queryOne<DbUser>('SELECT * FROM users WHERE id = ?', [userId]);
+    if (!dbUser?.password_hash) {
+      res.status(400).json({ error: 'bad_request', message: 'Changement de mot de passe non disponible' });
+      return;
+    }
+    const valid = await bcrypt.compare(currentPassword ?? '', dbUser.password_hash);
+    if (!valid) {
+      res.status(400).json({ error: 'bad_request', message: 'Mot de passe actuel incorrect' });
+      return;
+    }
+    const hash = await bcrypt.hash(newPassword, 10);
+    runQuery('UPDATE users SET password_hash = ? WHERE id = ?', [hash, userId]);
+  }
+
+  if (displayName?.trim()) {
+    runQuery('UPDATE users SET display_name = ? WHERE id = ?', [displayName.trim(), userId]);
+    if (req.session?.user) {
+      req.session.user = { ...req.session.user, displayName: displayName.trim() };
+    }
+  }
+
+  const updated = queryOne<DbUser>('SELECT * FROM users WHERE id = ?', [userId]);
+  res.json({
+    user: {
+      id: updated!.id,
+      email: updated!.email,
+      displayName: updated!.display_name,
+      role: updated!.role,
+      createdAt: updated!.created_at,
+    },
+  });
+});
+
 export default router;

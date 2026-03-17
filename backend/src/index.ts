@@ -13,6 +13,7 @@ import statsRoutes from './routes/stats.routes.js';
 import activityRoutes from './routes/activity.routes.js';
 import healthRoutes from './routes/health.routes.js';
 import githubRoutes from './routes/github.routes.js';
+import configRoutes from './routes/config.routes.js';
 import { initMonitoring } from './services/monitoring.service.js';
 import { startAutoBackup } from './services/backup.service.js';
 import { fileURLToPath } from 'url';
@@ -64,6 +65,7 @@ async function main() {
 
   app.use('/api/health', healthRoutes);
   app.use('/api/github', githubRoutes);
+  app.use('/api/config', configRoutes);
 
   // Serve frontend in production
   const frontendDist = join(__dirname, '../../frontend/dist');

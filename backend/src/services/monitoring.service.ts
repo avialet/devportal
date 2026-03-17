@@ -1,4 +1,5 @@
 import { runQuery, queryAll, queryOne } from '../db/database.js';
+import { sendMonitorAlert } from './alert.service.js';
 
 interface MonitorRow {
   id: number;
@@ -165,9 +166,17 @@ async function checkMonitor(monitor: MonitorRow): Promise<void> {
     [monitor.id, statusCode, responseTime, error]
   );
 
+  // Detect status change and fire alert
+  const prevCached = statusCache.get(monitor.id);
+  const newStatus: 'up' | 'down' = isUp ? 'up' : 'down';
+  const prevStatus = prevCached?.status ?? 'pending';
+  if (prevStatus !== 'pending' && prevStatus !== newStatus) {
+    sendMonitorAlert(monitor.name, monitor.url, prevStatus, newStatus, responseTime).catch(console.error);
+  }
+
   // Update cache
   statusCache.set(monitor.id, {
-    status: isUp ? 'up' : 'down',
+    status: newStatus,
     ping: responseTime,
     name: monitor.name,
     url: monitor.url,
