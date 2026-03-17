@@ -74,8 +74,6 @@ export async function runWizard(
     const stepNum = 3 + i;
     const branch = gitBranch ?? ENV_BRANCHES[envName];
     const fqdn = buildFqdn(name, envName);
-    const autoDeployEnabled = envName !== 'production'; // Auto-deploy on dev + staging only
-
     onProgress({ step: stepNum, label: `App ${envName} (${branch})`, status: 'running' });
     try {
       const app = await coolify.createPublicApp({
@@ -88,20 +86,18 @@ export async function runWizard(
         ports_exposes: portsExposes,
       });
 
-      // Set FQDN + auto-deploy config in a single PATCH
+      // Set domain via PATCH (Coolify uses 'domains' not 'fqdn')
       await coolify.updateApplication(app.uuid, {
-        fqdn,
-        is_auto_deploy_enabled: autoDeployEnabled,
+        domains: fqdn,
       });
 
       apps[envName] = { uuid: app.uuid, fqdn };
 
-      const autoLabel = autoDeployEnabled ? ' [auto-deploy]' : ' [manual]';
       onProgress({
         step: stepNum,
         label: `App ${envName} (${branch})`,
         status: 'done',
-        detail: `${fqdn}${autoLabel}`,
+        detail: fqdn,
       });
     } catch (err) {
       onProgress({
