@@ -14,7 +14,7 @@ import securityRoutes from './routes/security.routes.js';
 import statsRoutes from './routes/stats.routes.js';
 import activityRoutes from './routes/activity.routes.js';
 import healthRoutes from './routes/health.routes.js';
-import { initUptimeKuma } from './services/uptimekuma.service.js';
+import { initMonitoring } from './services/monitoring.service.js';
 import { startAutoBackup } from './services/backup.service.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -74,7 +74,7 @@ async function main() {
     });
   }
 
-  await initUptimeKuma();
+  await initMonitoring();
   startAutoBackup();
   app.listen(config.port, () => {
     console.log(`DevPortal backend running on port ${config.port}`);

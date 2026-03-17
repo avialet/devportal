@@ -1,7 +1,7 @@
 import { Router, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 import * as coolify from '../services/coolify.service.js';
-import * as kuma from '../services/uptimekuma.service.js';
+import * as monitoring from '../services/monitoring.service.js';
 import { queryAll } from '../db/database.js';
 
 const router = Router();
@@ -20,7 +20,7 @@ router.use(authMiddleware);
 router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const projects = await coolify.listProjects();
-    const monitors = kuma.getAllMonitorStatuses();
+    const monitors = monitoring.getAllMonitorStatuses();
 
     // Count services by status — need to fetch each project's environments + apps
     let running = 0, stopped = 0, deploying = 0;

@@ -1,9 +1,16 @@
+import { useState } from 'react';
 import { useMonitors } from '../hooks/useMonitors';
+import { api } from '../api/client';
 import MonitorBadge from '../components/MonitorBadge';
 
 export default function Monitoring() {
-  const { monitors, connected } = useMonitors(15000);
+  const { monitors, connected, refresh } = useMonitors(15000);
   const monitorList = Array.from(monitors.values());
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newUrl, setNewUrl] = useState('');
+  const [adding, setAdding] = useState(false);
 
   const upCount = monitorList.filter(m => m.status === 'up').length;
   const downCount = monitorList.filter(m => m.status === 'down').length;
@@ -12,6 +19,27 @@ export default function Monitoring() {
   const upPct = total > 0 ? (upCount / total) * 100 : 0;
   const downPct = total > 0 ? (downCount / total) * 100 : 0;
 
+  async function handleAdd() {
+    if (!newName || !newUrl) return;
+    setAdding(true);
+    try {
+      await api.createMonitor({ name: newName, url: newUrl });
+      setNewName('');
+      setNewUrl('');
+      setShowAdd(false);
+      refresh();
+    } catch { /* ignore */ }
+    finally { setAdding(false); }
+  }
+
+  async function handleDelete(id: number) {
+    if (!window.confirm('Supprimer ce monitor ?')) return;
+    try {
+      await api.deleteMonitor(id);
+      refresh();
+    } catch { /* ignore */ }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -19,10 +47,36 @@ export default function Monitoring() {
           <h1 className="text-sm font-semibold text-txt-primary">Monitoring</h1>
           <span className="inline-flex items-center gap-1.5 text-2xs">
             <span className={`w-1.5 h-1.5 ${connected ? 'bg-status-ok' : 'bg-status-error'}`} />
-            <span className="text-txt-muted">{connected ? 'Uptime Kuma connecte' : 'Deconnecte'}</span>
+            <span className="text-txt-muted">{connected ? 'Monitoring actif' : 'Inactif'}</span>
           </span>
         </div>
+        <button onClick={() => setShowAdd(!showAdd)} className="btn-primary">
+          {showAdd ? 'Annuler' : '+ Monitor'}
+        </button>
       </div>
+
+      {/* Add monitor form */}
+      {showAdd && (
+        <div className="panel px-3 py-3 flex flex-col sm:flex-row gap-2">
+          <input
+            type="text"
+            placeholder="Nom"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            className="px-2 py-1 bg-surface-1 border border-border text-txt-primary text-xs flex-1"
+          />
+          <input
+            type="text"
+            placeholder="https://..."
+            value={newUrl}
+            onChange={e => setNewUrl(e.target.value)}
+            className="px-2 py-1 bg-surface-1 border border-border text-txt-primary text-xs flex-[2]"
+          />
+          <button onClick={handleAdd} disabled={adding || !newName || !newUrl} className="btn-primary disabled:opacity-50">
+            {adding ? '...' : 'Ajouter'}
+          </button>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
@@ -65,19 +119,33 @@ export default function Monitoring() {
             <thead>
               <tr>
                 <th className="table-header">Monitor</th>
+                <th className="table-header hidden sm:table-cell">URL</th>
+                <th className="table-header hidden sm:table-cell">Env</th>
                 <th className="table-header">Status</th>
                 <th className="table-header">Ping</th>
+                <th className="table-header w-8"></th>
               </tr>
             </thead>
             <tbody>
               {monitorList.map(m => (
                 <tr key={m.id} className="hover:bg-surface-2/50 transition-colors">
                   <td className="table-cell font-medium text-txt-primary">{m.name}</td>
+                  <td className="table-cell text-txt-muted text-2xs font-mono hidden sm:table-cell truncate max-w-[200px]">
+                    {m.url?.replace('https://', '') ?? '—'}
+                  </td>
+                  <td className="table-cell text-txt-muted text-2xs hidden sm:table-cell">
+                    {m.environment ?? '—'}
+                  </td>
                   <td className="table-cell">
                     <MonitorBadge status={m.status} showPing={false} />
                   </td>
                   <td className="table-cell font-mono text-txt-secondary">
                     {m.ping != null ? `${m.ping}ms` : '—'}
+                  </td>
+                  <td className="table-cell">
+                    <button onClick={() => handleDelete(m.id)} className="text-txt-muted hover:text-status-error text-xs" title="Supprimer">
+                      ✕
+                    </button>
                   </td>
                 </tr>
               ))}

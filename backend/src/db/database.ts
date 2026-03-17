@@ -76,6 +76,26 @@ CREATE TABLE IF NOT EXISTS sessions (
   sess TEXT NOT NULL,
   expired_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS monitors (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  url TEXT NOT NULL,
+  interval_seconds INTEGER NOT NULL DEFAULT 60,
+  project_id INTEGER REFERENCES portal_projects(id),
+  environment TEXT,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS monitor_checks (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  monitor_id INTEGER NOT NULL REFERENCES monitors(id),
+  status_code INTEGER NOT NULL DEFAULT 0,
+  response_time_ms INTEGER,
+  error TEXT,
+  checked_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 let db: Database;

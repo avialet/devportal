@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api, type ProjectDetailResponse, type Deployment } from '../api/client';
-import { useMonitors } from '../hooks/useMonitors';
 import MonitorBadge from '../components/MonitorBadge';
 import EnvVarEditor from '../components/EnvVarEditor';
 import LogViewer from '../components/LogViewer';
@@ -33,7 +32,6 @@ function envTag(name: string): { color: string; label: string } {
 export default function ProjectDetail() {
   const { uuid } = useParams<{ uuid: string }>();
   const navigate = useNavigate();
-  const { getStatus, getPing } = useMonitors();
   const [project, setProject] = useState<ProjectDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -133,6 +131,20 @@ export default function ProjectDetail() {
           )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          {project.portalManaged && (!project.monitors || project.monitors.length === 0) && (
+            <button
+              onClick={async () => {
+                if (!uuid) return;
+                try {
+                  await api.createProjectMonitors(uuid);
+                  loadProject();
+                } catch { /* ignore */ }
+              }}
+              className="btn-secondary"
+            >
+              + Monitors
+            </button>
+          )}
           <button onClick={() => setShowEnvCompare(!showEnvCompare)} className="btn-secondary">
             {showEnvCompare ? 'Masquer' : 'Comparer'}
           </button>
@@ -147,12 +159,12 @@ export default function ProjectDetail() {
             <div key={env.name} className={`panel border-l-2 ${tag.color}`}>
               <div className="px-3 py-2 border-b border-border flex items-center gap-2">
                 <span className="text-xs font-semibold text-txt-primary uppercase">{tag.label}</span>
-                {project.monitors && (
-                  <MonitorBadge
-                    status={getStatus(project.monitors[env.name as keyof typeof project.monitors])}
-                    ping={getPing(project.monitors[env.name as keyof typeof project.monitors])}
-                  />
-                )}
+                {(() => {
+                  const envMonitor = project.monitors?.find(m => m.environment === env.name);
+                  return envMonitor ? (
+                    <MonitorBadge status={envMonitor.status} ping={envMonitor.ping} />
+                  ) : null;
+                })()}
               </div>
 
               {env.apps.length === 0 ? (

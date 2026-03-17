@@ -46,13 +46,22 @@ export interface ProjectDetailEnv {
   }[];
 }
 
+export interface ProjectMonitorInfo {
+  id: number;
+  name: string;
+  url: string;
+  environment: string | null;
+  status: 'up' | 'down' | 'pending';
+  ping: number | null;
+}
+
 export interface ProjectDetailResponse {
   uuid: string;
   name: string;
   description: string | null;
   githubUrl: string | null;
   portalManaged: boolean;
-  monitors: { development: number | null; staging: number | null; production: number | null } | null;
+  monitors: ProjectMonitorInfo[];
   environments: ProjectDetailEnv[];
 }
 
@@ -147,6 +156,15 @@ export const api = {
   getMonitors() {
     return request<MonitorsResponse>('/monitors');
   },
+  createMonitor(data: { name: string; url: string; intervalSeconds?: number; projectId?: number; environment?: string }) {
+    return request<{ id: number; status: string }>('/monitors', { method: 'POST', body: JSON.stringify(data) });
+  },
+  deleteMonitor(id: number) {
+    return request<{ status: string }>(`/monitors/${id}`, { method: 'DELETE' });
+  },
+  createProjectMonitors(projectUuid: string) {
+    return request<{ status: string; monitors: { environment: string; id: number; url: string }[] }>(`/projects/${projectUuid}/monitors`, { method: 'POST', body: JSON.stringify({}) });
+  },
 
   // Security scans
   listScans(projectId?: number) {
@@ -236,8 +254,11 @@ export interface ActivityItem {
 export interface MonitorInfo {
   id: number;
   name: string;
+  url: string;
   status: 'up' | 'down' | 'pending';
   ping: number | null;
+  environment: string | null;
+  projectId: number | null;
 }
 
 export interface MonitorsResponse {

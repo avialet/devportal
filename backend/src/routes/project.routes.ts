@@ -2,7 +2,9 @@ import { Router, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 import * as coolify from '../services/coolify.service.js';
 import { runWizard } from '../services/project-wizard.service.js';
+import * as monitoring from '../services/monitoring.service.js';
 import { queryAll, queryOne, runQuery, logActivity } from '../db/database.js';
+import { buildFqdn, ENV_NAMES, type EnvName } from '@devportal/shared';
 
 function param(req: AuthRequest, name: string): string {
   const v = req.params[name];
@@ -144,17 +146,25 @@ router.get('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
       });
     }
 
+    // Fetch monitors from monitors table instead of portal_projects columns
+    const projectMonitors = portal
+      ? monitoring.getMonitorsForProject(portal.id)
+      : [];
+
     res.json({
       uuid: project.uuid,
       name: project.name,
       description: project.description,
       githubUrl: portal?.github_url ?? null,
       portalManaged: !!portal,
-      monitors: portal ? {
-        development: portal.dev_monitor_id,
-        staging: portal.staging_monitor_id,
-        production: portal.prod_monitor_id,
-      } : null,
+      monitors: projectMonitors.map(m => ({
+        id: m.id,
+        name: m.name,
+        url: m.url,
+        environment: m.environment,
+        status: monitoring.getMonitorStatus(m.id).status,
+        ping: monitoring.getMonitorStatus(m.id).ping,
+      })),
       environments,
     });
   } catch (err) {
@@ -197,6 +207,56 @@ router.post('/create', async (req: AuthRequest, res: Response): Promise<void> =>
     res.write(`data: ${JSON.stringify({ step: 0, label: 'error', status: 'error', detail: String(err) })}\n\n`);
   } finally {
     res.end();
+  }
+});
+
+/**
+ * @openapi
+ * /projects/{uuid}/monitors:
+ *   post:
+ *     tags: [Projects]
+ *     summary: Add monitors for a project (auto-create for all envs)
+ */
+router.post('/:uuid/monitors', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uuid = param(req, 'uuid');
+    const portal = queryOne<DbProject>('SELECT * FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+    if (!portal) {
+      res.status(404).json({ error: 'not_found', message: 'Projet non gere par le portal' });
+      return;
+    }
+
+    const { environment, url, name: monitorName } = req.body;
+
+    // If a specific env+url is given, create one monitor
+    if (environment && url) {
+      const id = monitoring.addMonitor(
+        monitorName || `${environment}-${portal.name}`,
+        url,
+        60,
+        portal.id,
+        environment
+      );
+      res.json({ id, status: 'created' });
+      return;
+    }
+
+    // Otherwise auto-create monitors for all 3 envs based on project name
+    const created: { environment: string; id: number; url: string }[] = [];
+    const existingMonitors = monitoring.getMonitorsForProject(portal.id);
+    const existingEnvs = new Set(existingMonitors.map(m => m.environment));
+
+    for (const envName of ENV_NAMES) {
+      if (existingEnvs.has(envName)) continue;
+      const fqdn = buildFqdn(portal.name, envName as EnvName);
+      const id = monitoring.addMonitor(`${envName}-${portal.name}`, fqdn, 60, portal.id, envName);
+      created.push({ environment: envName, id, url: fqdn });
+    }
+
+    res.json({ status: 'created', monitors: created });
+  } catch (err: any) {
+    console.error('Error creating project monitors:', err);
+    res.status(500).json({ error: 'error', message: err.message });
   }
 });
 

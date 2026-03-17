@@ -1,7 +1,7 @@
 import * as coolify from './coolify.service.js';
-import * as kuma from './uptimekuma.service.js';
-import { runQuery } from '../db/database.js';
-import { buildFqdn, buildDomain, ENV_NAMES, type EnvName } from '@devportal/shared';
+import * as monitoring from './monitoring.service.js';
+import { runQuery, queryOne } from '../db/database.js';
+import { buildFqdn, ENV_NAMES, type EnvName } from '@devportal/shared';
 
 export interface WizardInput {
   name: string;
@@ -60,13 +60,13 @@ export async function runWizard(
         await coolify.createEnvironment(project.uuid, envName);
       }
     }
-    onProgress({ step: 2, label: 'Creation des environnements', status: 'done', detail: '3 environnements' });
+    onProgress({ step: 2, label: 'Creation des environnements', status: 'done', detail: 'dev + staging + production' });
   } catch (err) {
     onProgress({ step: 2, label: 'Creation des environnements', status: 'error', detail: String(err) });
     throw err;
   }
 
-  // Steps 3-5: Create apps for each environment
+  // Steps 3-5: Create apps for each environment with auto-deploy config
   const apps: Partial<Record<EnvName, { uuid: string; fqdn: string }>> = {};
 
   for (let i = 0; i < ENV_NAMES.length; i++) {
@@ -74,8 +74,9 @@ export async function runWizard(
     const stepNum = 3 + i;
     const branch = gitBranch ?? ENV_BRANCHES[envName];
     const fqdn = buildFqdn(name, envName);
+    const autoDeployEnabled = envName !== 'production'; // Auto-deploy on dev + staging only
 
-    onProgress({ step: stepNum, label: `Deploiement app ${envName}`, status: 'running' });
+    onProgress({ step: stepNum, label: `App ${envName} (${branch})`, status: 'running' });
     try {
       const app = await coolify.createPublicApp({
         project_uuid: project.uuid,
@@ -87,19 +88,25 @@ export async function runWizard(
         ports_exposes: portsExposes,
       });
 
-      await coolify.updateApplication(app.uuid, { fqdn });
+      // Set FQDN + auto-deploy config in a single PATCH
+      await coolify.updateApplication(app.uuid, {
+        fqdn,
+        is_auto_deploy_enabled: autoDeployEnabled,
+      });
 
       apps[envName] = { uuid: app.uuid, fqdn };
+
+      const autoLabel = autoDeployEnabled ? ' [auto-deploy]' : ' [manual]';
       onProgress({
         step: stepNum,
-        label: `Deploiement app ${envName}`,
+        label: `App ${envName} (${branch})`,
         status: 'done',
-        detail: fqdn,
+        detail: `${fqdn}${autoLabel}`,
       });
     } catch (err) {
       onProgress({
         step: stepNum,
-        label: `Deploiement app ${envName}`,
+        label: `App ${envName} (${branch})`,
         status: 'error',
         detail: String(err),
       });
@@ -107,32 +114,13 @@ export async function runWizard(
     }
   }
 
-  // Step 6: Create Uptime Kuma monitors
-  onProgress({ step: 6, label: 'Configuration des monitors', status: 'running' });
-  const monitorIds: Partial<Record<EnvName, number>> = {};
-  try {
-    if (kuma.isConnected()) {
-      for (const envName of ENV_NAMES) {
-        const domain = buildDomain(name, envName);
-        const fqdn = buildFqdn(name, envName);
-        const monitorId = await kuma.addMonitor(`${envName}-${name}`, fqdn);
-        monitorIds[envName] = monitorId;
-      }
-      onProgress({ step: 6, label: 'Configuration des monitors', status: 'done', detail: '3 monitors crees' });
-    } else {
-      onProgress({ step: 6, label: 'Configuration des monitors', status: 'done', detail: 'Uptime Kuma non connecte - skip' });
-    }
-  } catch (err) {
-    // Non-blocking: monitors are nice-to-have
-    onProgress({ step: 6, label: 'Configuration des monitors', status: 'done', detail: `Warning: ${err}` });
-  }
-
-  // Step 7: Save to portal database
-  onProgress({ step: 7, label: 'Sauvegarde', status: 'running' });
+  // Step 6: Save to portal database (before monitors so we have project_id)
+  onProgress({ step: 6, label: 'Sauvegarde en base', status: 'running' });
+  let portalProjectId: number;
   try {
     runQuery(
-      `INSERT INTO portal_projects (name, coolify_project_uuid, github_url, created_by, dev_app_uuid, staging_app_uuid, prod_app_uuid, dev_monitor_id, staging_monitor_id, prod_monitor_id)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO portal_projects (name, coolify_project_uuid, github_url, created_by, dev_app_uuid, staging_app_uuid, prod_app_uuid)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
         project.uuid,
@@ -141,23 +129,37 @@ export async function runWizard(
         apps.development?.uuid ?? null,
         apps.staging?.uuid ?? null,
         apps.production?.uuid ?? null,
-        monitorIds.development ?? null,
-        monitorIds.staging ?? null,
-        monitorIds.production ?? null,
       ]
     );
-    onProgress({ step: 7, label: 'Sauvegarde', status: 'done' });
+    const row = queryOne<{ id: number }>('SELECT last_insert_rowid() as id');
+    portalProjectId = row?.id ?? 0;
+    onProgress({ step: 6, label: 'Sauvegarde en base', status: 'done' });
   } catch (err) {
-    onProgress({ step: 7, label: 'Sauvegarde', status: 'error', detail: String(err) });
+    onProgress({ step: 6, label: 'Sauvegarde en base', status: 'error', detail: String(err) });
     throw err;
   }
 
-  // Trigger initial dev deployment
-  if (apps.development) {
-    try {
-      await coolify.deployApplication(apps.development.uuid);
-    } catch {
-      // Non-blocking
+  // Step 7: Create monitors for all 3 environments
+  onProgress({ step: 7, label: 'Creation des monitors', status: 'running' });
+  try {
+    for (const envName of ENV_NAMES) {
+      const fqdn = buildFqdn(name, envName);
+      monitoring.addMonitor(`${envName}-${name}`, fqdn, 60, portalProjectId, envName);
+    }
+    onProgress({ step: 7, label: 'Creation des monitors', status: 'done', detail: '3 monitors actifs' });
+  } catch (err) {
+    // Non-blocking
+    onProgress({ step: 7, label: 'Creation des monitors', status: 'done', detail: `Warning: ${err}` });
+  }
+
+  // Trigger initial deployments on dev + staging
+  for (const envName of ['development', 'staging'] as EnvName[]) {
+    if (apps[envName]) {
+      try {
+        await coolify.deployApplication(apps[envName]!.uuid);
+      } catch {
+        // Non-blocking
+      }
     }
   }
 
