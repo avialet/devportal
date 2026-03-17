@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import session from 'express-session';
 import { config } from './config.js';
 import { initDatabase } from './db/database.js';
 import authRoutes from './routes/auth.routes.js';
@@ -16,8 +17,24 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
-app.use(cors());
+app.use(cors({
+  origin: config.portalUrl,
+  credentials: true,
+}));
 app.use(express.json());
+
+// Session middleware (for OIDC)
+app.use(session({
+  secret: config.sessionSecret,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    secure: config.portalUrl.startsWith('https'),
+    httpOnly: true,
+    maxAge: 24 * 60 * 60 * 1000, // 24h
+    sameSite: 'lax',
+  },
+}));
 
 // API routes
 app.use('/api/auth', authRoutes);

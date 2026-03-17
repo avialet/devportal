@@ -9,7 +9,7 @@ import Users from './pages/Users';
 import Layout from './components/Layout';
 
 export default function App() {
-  const { user, loading, login, logout } = useAuth();
+  const { user, loading, oidcAvailable, loginWithOidc, logout } = useAuth();
 
   if (loading) {
     return (
@@ -20,7 +20,7 @@ export default function App() {
   }
 
   if (!user) {
-    return <Login onLogin={login} />;
+    return <Login onLoginOidc={loginWithOidc} oidcAvailable={oidcAvailable} />;
   }
 
   return (

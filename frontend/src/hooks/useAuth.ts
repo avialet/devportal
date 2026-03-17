@@ -2,35 +2,28 @@ import { useState, useEffect, useCallback } from 'react';
 import type { User } from '@devportal/shared';
 import { api } from '../api/client';
 
-const TOKEN_KEY = 'devportal_token';
-
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [oidcAvailable, setOidcAvailable] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem(TOKEN_KEY);
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-
-    api.me()
-      .then(({ user }) => setUser(user))
-      .catch(() => localStorage.removeItem(TOKEN_KEY))
-      .finally(() => setLoading(false));
+    // Check session (cookie-based) or providers
+    Promise.all([
+      api.me().then(({ user }) => setUser(user)).catch(() => {}),
+      api.getProviders().then(({ oidc }) => setOidcAvailable(oidc)).catch(() => {}),
+    ]).finally(() => setLoading(false));
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const { token, user } = await api.login(email, password);
-    localStorage.setItem(TOKEN_KEY, token);
-    setUser(user);
+  const loginWithOidc = useCallback(() => {
+    // Redirect to backend OIDC login endpoint
+    window.location.href = '/api/auth/login';
   }, []);
 
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
+  const logout = useCallback(async () => {
+    await api.logout().catch(() => {});
     setUser(null);
   }, []);
 
-  return { user, loading, login, logout };
+  return { user, loading, oidcAvailable, loginWithOidc, logout };
 }

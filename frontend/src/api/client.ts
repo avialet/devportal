@@ -2,19 +2,13 @@ import type { AuthResponse, ApiError } from '@devportal/shared';
 
 const BASE = '/api';
 
-function getToken(): string | null {
-  return localStorage.getItem('devportal_token');
-}
-
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const token = getToken();
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string> ?? {}),
   };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${BASE}${path}`, { ...options, headers });
+  const res = await fetch(`${BASE}${path}`, { ...options, headers, credentials: 'include' });
 
   if (!res.ok) {
     const err: ApiError = await res.json().catch(() => ({
@@ -82,6 +76,12 @@ export const api = {
   },
   me() {
     return request<{ user: AuthResponse['user'] }>('/auth/me');
+  },
+  logout() {
+    return request<{ ok: boolean }>('/auth/logout', { method: 'POST' });
+  },
+  getProviders() {
+    return request<{ oidc: boolean }>('/auth/providers');
   },
 
   // Projects

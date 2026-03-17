@@ -1,9 +1,11 @@
 import { Router, type Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { config } from '../config.js';
-import { queryOne } from '../db/database.js';
+import { queryOne, runQuery } from '../db/database.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
+import { getOidcConfig, buildLoginUrl, handleCallback, mapGroupsToRole, isOidcConfigured } from '../services/oidc.service.js';
 import type { User } from '@devportal/shared';
 
 interface DbUser {
@@ -12,11 +14,13 @@ interface DbUser {
   password_hash: string;
   display_name: string;
   role: string;
+  oidc_sub: string | null;
   created_at: string;
 }
 
 const router = Router();
 
+// Legacy email/password login (kept for transition)
 router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -48,8 +52,116 @@ router.post('/login', async (req: AuthRequest, res: Response): Promise<void> => 
   res.json({ token, user });
 });
 
+// OIDC: redirect to Authentik
+router.get('/login', async (_req: AuthRequest, res: Response): Promise<void> => {
+  if (!isOidcConfigured()) {
+    res.status(501).json({ error: 'OIDC not configured' });
+    return;
+  }
+
+  try {
+    await getOidcConfig();
+    const state = crypto.randomBytes(32).toString('hex');
+    const nonce = crypto.randomBytes(32).toString('hex');
+
+    _req.session.oidcState = state;
+    _req.session.oidcNonce = nonce;
+
+    const url = buildLoginUrl(state, nonce);
+    res.redirect(url);
+  } catch (err) {
+    console.error('OIDC login error:', err);
+    res.status(500).json({ error: 'OIDC login failed' });
+  }
+});
+
+// OIDC: callback from Authentik
+router.get('/callback', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const state = req.session.oidcState;
+    const nonce = req.session.oidcNonce;
+    if (!state || !nonce) {
+      res.status(400).json({ error: 'Missing OIDC session state' });
+      return;
+    }
+
+    // Build the full callback URL as received by the browser
+    const callbackUrl = new URL(`${config.oidcRedirectUri}?${new URLSearchParams(req.query as Record<string, string>).toString()}`);
+
+    const userInfo = await handleCallback(callbackUrl, state, nonce);
+    const role = mapGroupsToRole(userInfo.groups);
+
+    // Clean up OIDC session data
+    delete req.session.oidcState;
+    delete req.session.oidcNonce;
+
+    // Find or create user
+    let dbUser = queryOne<DbUser>('SELECT * FROM users WHERE oidc_sub = ?', [userInfo.sub]);
+
+    if (!dbUser) {
+      // Try matching by email (migration of existing local user)
+      dbUser = queryOne<DbUser>('SELECT * FROM users WHERE email = ? AND oidc_sub IS NULL', [userInfo.email]);
+      if (dbUser) {
+        // Link existing user to OIDC
+        runQuery('UPDATE users SET oidc_sub = ?, display_name = ?, role = ? WHERE id = ?', [userInfo.sub, userInfo.name, role, dbUser.id]);
+        dbUser.oidc_sub = userInfo.sub;
+        dbUser.display_name = userInfo.name;
+        dbUser.role = role;
+      } else {
+        // Create new user
+        runQuery(
+          'INSERT INTO users (email, password_hash, display_name, role, oidc_sub) VALUES (?, ?, ?, ?, ?)',
+          [userInfo.email, '', userInfo.name, role, userInfo.sub]
+        );
+        dbUser = queryOne<DbUser>('SELECT * FROM users WHERE oidc_sub = ?', [userInfo.sub]);
+      }
+    } else {
+      // Update role and display name from Authentik groups
+      if (dbUser.role !== role || dbUser.display_name !== userInfo.name) {
+        runQuery('UPDATE users SET display_name = ?, role = ? WHERE id = ?', [userInfo.name, role, dbUser.id]);
+        dbUser.display_name = userInfo.name;
+        dbUser.role = role;
+      }
+    }
+
+    if (!dbUser) {
+      res.status(500).json({ error: 'Failed to create user' });
+      return;
+    }
+
+    // Store user in session
+    const user: User = {
+      id: dbUser.id,
+      email: dbUser.email,
+      displayName: dbUser.display_name,
+      role: dbUser.role as 'admin' | 'developer',
+      createdAt: dbUser.created_at,
+    };
+    req.session.user = user;
+
+    // Redirect to frontend
+    res.redirect(config.portalUrl);
+  } catch (err) {
+    console.error('OIDC callback error:', err);
+    res.redirect(`${config.portalUrl}/login?error=auth_failed`);
+  }
+});
+
+// Logout
+router.post('/logout', (req: AuthRequest, res: Response): void => {
+  req.session.destroy(() => {
+    res.json({ ok: true });
+  });
+});
+
+// Auth info
 router.get('/me', authMiddleware, (req: AuthRequest, res: Response): void => {
   res.json({ user: req.user });
+});
+
+// Check if OIDC is available
+router.get('/providers', (_req: AuthRequest, res: Response): void => {
+  res.json({ oidc: isOidcConfigured() });
 });
 
 export default router;

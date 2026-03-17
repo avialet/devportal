@@ -8,9 +8,10 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
+  password_hash TEXT NOT NULL DEFAULT '',
   display_name TEXT NOT NULL,
   role TEXT NOT NULL DEFAULT 'developer',
+  oidc_sub TEXT UNIQUE,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -61,6 +62,17 @@ export async function initDatabase(): Promise<void> {
   for (const stmt of SCHEMA.split(';').filter(s => s.trim())) {
     db.run(stmt);
   }
+
+  // Migration: add oidc_sub column if missing (existing DBs)
+  try {
+    db.run('SELECT oidc_sub FROM users LIMIT 1');
+  } catch {
+    db.run('ALTER TABLE users ADD COLUMN oidc_sub TEXT UNIQUE');
+  }
+
+  // Migration: make password_hash optional for OIDC users
+  // (handled by DEFAULT '' in schema for new DBs)
+
   saveDb();
 
   await seedAdmin();

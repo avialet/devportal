@@ -8,19 +8,27 @@ export interface AuthRequest extends Request {
 }
 
 export function authMiddleware(req: AuthRequest, res: Response, next: NextFunction): void {
-  const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'unauthorized', message: 'Token manquant' });
+  // 1) Session cookie (OIDC)
+  if (req.session?.user) {
+    req.user = req.session.user as User;
+    next();
     return;
   }
 
-  try {
-    const payload = jwt.verify(header.slice(7), config.jwtSecret) as User;
-    req.user = payload;
-    next();
-  } catch {
-    res.status(401).json({ error: 'unauthorized', message: 'Token invalide' });
+  // 2) JWT Bearer fallback (legacy / API)
+  const header = req.headers.authorization;
+  if (header?.startsWith('Bearer ')) {
+    try {
+      const payload = jwt.verify(header.slice(7), config.jwtSecret) as User;
+      req.user = payload;
+      next();
+      return;
+    } catch {
+      // fall through
+    }
   }
+
+  res.status(401).json({ error: 'unauthorized', message: 'Non authentifie' });
 }
 
 export function adminOnly(req: AuthRequest, res: Response, next: NextFunction): void {

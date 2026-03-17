@@ -21,4 +21,12 @@ export const config = {
   adminEmail: env('PORTAL_ADMIN_EMAIL', 'admin@portal.local'),
   adminPassword: env('PORTAL_ADMIN_PASSWORD', 'admin'),
   dataDir: env('DATA_DIR', './data'),
+  // OIDC (Authentik)
+  oidcIssuer: env('OIDC_ISSUER', ''),
+  oidcIssuerInternal: env('OIDC_ISSUER_INTERNAL', ''),
+  oidcClientId: env('OIDC_CLIENT_ID', ''),
+  oidcClientSecret: env('OIDC_CLIENT_SECRET', ''),
+  oidcRedirectUri: env('OIDC_REDIRECT_URI', ''),
+  sessionSecret: env('SESSION_SECRET', 'dev-session-secret-change-me'),
+  portalUrl: env('PORTAL_URL', 'http://localhost:5173'),
 } as const;
