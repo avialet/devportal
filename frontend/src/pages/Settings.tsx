@@ -48,7 +48,7 @@ export default function Settings({ user }: { user?: User }) {
       api.getHealth().catch(() => null),
       api.getBackups().then(r => r.backups).catch(() => []),
       api.getGitHubStatus().catch(() => ({ configured: false } as GitHubStatus)),
-      api.getConfig().catch(() => ({})),
+      api.getConfig().catch(() => ({} as Record<string, string>)),
     ]).then(([h, b, gh, cfg]) => {
       setHealth(h);
       setBackups(b);
@@ -161,7 +161,61 @@ export default function Settings({ user }: { user?: User }) {
                 placeholder="••••••" className="input-field w-full" />
             </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* GitHub token */}
+          <div className="border-t border-border pt-3">
+            <div className="flex items-center justify-between mb-2">
+              <label className="block text-2xs text-txt-muted">Token GitHub personnel</label>
+              {ghStatus?.configured && ghStatus.login && (
+                <span className="text-2xs text-status-ok">@{ghStatus.login}</span>
+              )}
+            </div>
+            {ghStatus?.configured ? (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-status-ok" />
+                  <span className="text-2xs text-txt-primary">Connecte en tant que <span className="font-medium">@{ghStatus.login}</span></span>
+                </div>
+                <button onClick={handleRemoveToken} className="text-2xs text-status-error hover:text-red-300">
+                  Deconnecter
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-2xs text-txt-muted">
+                  <a
+                    href="https://github.com/settings/tokens/new?scopes=repo,read:org&description=DevPortal"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent hover:text-accent-hover underline"
+                  >
+                    Creer un token
+                  </a>
+                  {' '}avec les droits <code className="bg-surface-2 px-1">repo</code> et <code className="bg-surface-2 px-1">read:org</code>.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={ghToken}
+                    onChange={e => setGhToken(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleSaveToken()}
+                    placeholder="ghp_..."
+                    className="input-field flex-1"
+                  />
+                  <button
+                    onClick={handleSaveToken}
+                    disabled={savingToken || !ghToken.trim()}
+                    className="btn-secondary disabled:opacity-50"
+                  >
+                    {savingToken ? '...' : 'Lier'}
+                  </button>
+                </div>
+                {tokenError && <p className="text-2xs text-status-error">{tokenError}</p>}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 border-t border-border pt-3">
             <button onClick={handleSaveProfile} disabled={savingProfile}
               className="btn-primary disabled:opacity-50">
               {savingProfile ? '...' : 'Enregistrer'}
@@ -206,61 +260,6 @@ export default function Settings({ user }: { user?: User }) {
             </button>
             {webhookMsg && <span className={`text-2xs ${webhookMsg.startsWith('✓') ? 'text-status-ok' : 'text-status-error'}`}>{webhookMsg}</span>}
           </div>
-        </div>
-      </div>
-
-      {/* GitHub token */}
-      <div className="panel">
-        <div className="px-3 py-2 border-b border-border flex items-center justify-between">
-          <h2 className="text-xs font-semibold text-txt-primary">Compte GitHub</h2>
-          {ghStatus?.configured && ghStatus.login && (
-            <span className="text-2xs text-status-ok">@{ghStatus.login}</span>
-          )}
-        </div>
-        <div className="px-3 py-3">
-          {ghStatus?.configured ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-status-ok" />
-                <span className="text-2xs text-txt-primary">Token configure pour <span className="font-medium">@{ghStatus.login}</span></span>
-              </div>
-              <button onClick={handleRemoveToken} className="text-2xs text-status-error hover:text-red-300">
-                Deconnecter
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-2xs text-txt-muted">
-                Token GitHub (Personal Access Token) avec les droits <code className="bg-surface-2 px-1">repo</code> et <code className="bg-surface-2 px-1">read:org</code>.{' '}
-                <a
-                  href="https://github.com/settings/tokens/new?scopes=repo,read:org&description=DevPortal"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-accent hover:text-accent-hover underline"
-                >
-                  Creer un token
-                </a>
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={ghToken}
-                  onChange={e => setGhToken(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleSaveToken()}
-                  placeholder="ghp_..."
-                  className="input-field flex-1"
-                />
-                <button
-                  onClick={handleSaveToken}
-                  disabled={savingToken || !ghToken.trim()}
-                  className="btn-primary disabled:opacity-50"
-                >
-                  {savingToken ? '...' : 'Enregistrer'}
-                </button>
-              </div>
-              {tokenError && <p className="text-2xs text-status-error">{tokenError}</p>}
-            </div>
-          )}
         </div>
       </div>
 
