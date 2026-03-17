@@ -17,6 +17,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const app = express();
 
+// Trust reverse proxy (Traefik) for secure cookies behind HTTPS
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: config.portalUrl,
   credentials: true,
