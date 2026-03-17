@@ -81,13 +81,9 @@ router.get('/login', async (_req: AuthRequest, res: Response): Promise<void> => 
 // OIDC: callback from Authentik
 router.get('/callback', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('OIDC callback - session ID:', req.sessionID);
-    console.log('OIDC callback - cookie header:', req.headers.cookie);
-    console.log('OIDC callback - session data:', JSON.stringify(req.session));
     const state = req.session.oidcState;
     const nonce = req.session.oidcNonce;
     if (!state || !nonce) {
-      console.error('OIDC callback - Missing state/nonce. Session:', req.session);
       res.status(400).json({ error: 'Missing OIDC session state' });
       return;
     }
