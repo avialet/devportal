@@ -185,8 +185,8 @@ export default function ProjectDetail() {
                 {project.githubUrl.replace('https://github.com/', '')}
               </a>
             )}
-            {/* Screenshot thumbnail - only for portal-managed projects */}
-            {project.portalManaged && (
+            {/* Screenshot thumbnail - for any project with a FQDN */}
+            {sortedEnvs.some(e => e.apps.some(a => a.fqdn)) && (
               <div className="mb-3 border border-border overflow-hidden" style={{ maxWidth: '320px', aspectRatio: '16/9' }}>
                 <img
                   src={`/api/projects/${project.uuid}/screenshot`}

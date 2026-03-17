@@ -114,13 +114,20 @@ export default function Layout({ user, onLogout, children }: Props) {
         {/* User */}
         <div className="px-2 py-2 border-t border-border">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-accent/20 text-accent flex items-center justify-center text-2xs font-bold shrink-0">
-              {user.displayName.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-2xs font-medium text-txt-primary truncate">{user.displayName}</p>
-              <p className="text-2xs text-txt-muted truncate">{user.role}</p>
-            </div>
+            <Link
+              to="/settings"
+              onClick={() => setSidebarOpen(false)}
+              className="flex items-center gap-2 flex-1 min-w-0 group"
+              title="Mon profil"
+            >
+              <div className="w-5 h-5 bg-accent/20 text-accent flex items-center justify-center text-2xs font-bold shrink-0 group-hover:bg-accent/30 transition-colors">
+                {user.displayName.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-2xs font-medium text-txt-primary truncate group-hover:text-accent transition-colors">{user.displayName}</p>
+                <p className="text-2xs text-txt-muted truncate">{user.role}</p>
+              </div>
+            </Link>
             <button
               onClick={onLogout}
               className="text-txt-muted hover:text-status-error transition-colors p-0.5"
