@@ -17,12 +17,10 @@ export default function NewProject() {
 
   // GitHub integration state
   const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null);
-  const [ghToken, setGhToken] = useState('');
-  const [savingToken, setSavingToken] = useState(false);
-  const [tokenError, setTokenError] = useState('');
   const [orgsData, setOrgsData] = useState<GitHubOrgsResponse | null>(null);
   const [repos, setRepos] = useState<GitHubRepoInfo[]>([]);
   const [loadingRepos, setLoadingRepos] = useState(false);
+  const [deployedUrls, setDeployedUrls] = useState<Set<string>>(new Set());
 
   // Form state
   const [repoMode, setRepoMode] = useState<RepoMode>('new');
@@ -43,9 +41,13 @@ export default function NewProject() {
 
   const slug = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
 
-  // Load GitHub status on mount
+  // Load GitHub status + already-deployed repo URLs on mount
   useEffect(() => {
     api.getGitHubStatus().then(setGhStatus).catch(() => setGhStatus({ configured: false }));
+    api.listProjects().then(projects => {
+      const urls = new Set(projects.flatMap(p => p.githubUrl ? [p.githubUrl.toLowerCase()] : []));
+      setDeployedUrls(urls);
+    }).catch(() => {});
   }, []);
 
   // Load orgs when GitHub is configured
@@ -64,21 +66,6 @@ export default function NewProject() {
       .catch(() => setRepos([]))
       .finally(() => setLoadingRepos(false));
   }, [ghStatus?.configured, selectedOrg, repoMode]);
-
-  async function handleSaveToken() {
-    if (!ghToken.trim()) return;
-    setSavingToken(true);
-    setTokenError('');
-    try {
-      const result = await api.saveGitHubToken(ghToken.trim());
-      setGhStatus({ configured: true, login: result.login });
-      setGhToken('');
-    } catch (err: any) {
-      setTokenError(err?.message || 'Token invalide');
-    } finally {
-      setSavingToken(false);
-    }
-  }
 
   async function handleCreateRepo() {
     if (!name) return;
@@ -188,45 +175,8 @@ export default function NewProject() {
     return <div className="w-3 h-3 border border-surface-4" />;
   }
 
-  // --- GitHub token setup ---
-  if (ghStatus && !ghStatus.configured) {
-    return (
-      <div className="max-w-lg">
-        <Link to="/" className="text-accent hover:text-accent-hover text-xs mb-2 inline-block">&larr; Retour</Link>
-        <h1 className="text-sm font-semibold text-txt-primary mb-1">Nouveau projet</h1>
-
-        <div className="panel p-3 mt-3">
-          <div className="panel-header -mx-3 -mt-3 mb-3">Configurer GitHub</div>
-          <p className="text-2xs text-txt-muted mb-3">
-            Un token GitHub (Personal Access Token) avec les droits <code className="bg-surface-2 px-1">repo</code> est necessaire pour creer des depots et lister vos repos.
-            {' '}<a href="https://github.com/settings/tokens/new?scopes=repo,read:org&description=DevPortal" target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover underline">Creer un token</a>
-          </p>
-          <div className="flex gap-2">
-            <input
-              type="password"
-              value={ghToken}
-              onChange={e => setGhToken(e.target.value)}
-              placeholder="ghp_..."
-              className="input-field flex-1"
-            />
-            <button onClick={handleSaveToken} disabled={savingToken || !ghToken.trim()} className="btn-primary disabled:opacity-50">
-              {savingToken ? '...' : 'Enregistrer'}
-            </button>
-          </div>
-          {tokenError && <p className="text-2xs text-status-error mt-2">{tokenError}</p>}
-
-          <div className="mt-3 border-t border-border pt-3">
-            <button
-              onClick={() => setGhStatus({ configured: true })}
-              className="text-2xs text-txt-muted hover:text-txt-secondary"
-            >
-              Passer cette etape (URL manuelle uniquement)
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // --- GitHub not configured: show notice but allow manual URL mode ---
+  // (token is managed in Settings page)
 
   // --- Wizard progress ---
   if (creating || done) {
@@ -459,11 +409,14 @@ export default function NewProject() {
                   className="input-field w-full"
                 >
                   <option value="">-- Choisir un depot --</option>
-                  {repos.map(r => (
-                    <option key={r.htmlUrl} value={r.htmlUrl}>
-                      {r.fullName} {r.isPrivate ? '(prive)' : '(public)'}
-                    </option>
-                  ))}
+                  {repos.map(r => {
+                    const alreadyDeployed = deployedUrls.has(r.htmlUrl.toLowerCase());
+                    return (
+                      <option key={r.htmlUrl} value={r.htmlUrl} disabled={alreadyDeployed}>
+                        {r.fullName} {r.isPrivate ? '(prive)' : '(public)'}{alreadyDeployed ? ' — deja deploye' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               )}
             </div>

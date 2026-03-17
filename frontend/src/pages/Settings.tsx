@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, type HealthResponse, type BackupInfo } from '../api/client';
+import { api, type HealthResponse, type BackupInfo, type GitHubStatus } from '../api/client';
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes}B`;
@@ -22,15 +22,43 @@ export default function Settings() {
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
+  // GitHub token state
+  const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null);
+  const [ghToken, setGhToken] = useState('');
+  const [savingToken, setSavingToken] = useState(false);
+  const [tokenError, setTokenError] = useState('');
+
   useEffect(() => {
     Promise.all([
       api.getHealth().catch(() => null),
       api.getBackups().then(r => r.backups).catch(() => []),
-    ]).then(([h, b]) => {
+      api.getGitHubStatus().catch(() => ({ configured: false } as GitHubStatus)),
+    ]).then(([h, b, gh]) => {
       setHealth(h);
       setBackups(b);
+      setGhStatus(gh);
     }).finally(() => setLoading(false));
   }, []);
+
+  async function handleSaveToken() {
+    if (!ghToken.trim()) return;
+    setSavingToken(true);
+    setTokenError('');
+    try {
+      const result = await api.saveGitHubToken(ghToken.trim());
+      setGhStatus({ configured: true, login: result.login });
+      setGhToken('');
+    } catch (err: any) {
+      setTokenError(err?.message || 'Token invalide');
+    } finally {
+      setSavingToken(false);
+    }
+  }
+
+  async function handleRemoveToken() {
+    await api.removeGitHubToken();
+    setGhStatus({ configured: false });
+  }
 
   async function handleCreateBackup() {
     setCreating(true);
@@ -52,7 +80,64 @@ export default function Settings() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-sm font-semibold text-txt-primary">Systeme</h1>
+      <h1 className="text-sm font-semibold text-txt-primary">Parametres</h1>
+
+      {/* GitHub token */}
+      <div className="panel">
+        <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+          <h2 className="text-xs font-semibold text-txt-primary">Compte GitHub</h2>
+          {ghStatus?.configured && ghStatus.login && (
+            <span className="text-2xs text-status-ok">@{ghStatus.login}</span>
+          )}
+        </div>
+        <div className="px-3 py-3">
+          {ghStatus?.configured ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-status-ok" />
+                <span className="text-2xs text-txt-primary">Token configure pour <span className="font-medium">@{ghStatus.login}</span></span>
+              </div>
+              <button onClick={handleRemoveToken} className="text-2xs text-status-error hover:text-red-300">
+                Deconnecter
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-2xs text-txt-muted">
+                Token GitHub (Personal Access Token) avec les droits <code className="bg-surface-2 px-1">repo</code> et <code className="bg-surface-2 px-1">read:org</code>.{' '}
+                <a
+                  href="https://github.com/settings/tokens/new?scopes=repo,read:org&description=DevPortal"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-accent hover:text-accent-hover underline"
+                >
+                  Creer un token
+                </a>
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="password"
+                  value={ghToken}
+                  onChange={e => setGhToken(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSaveToken()}
+                  placeholder="ghp_..."
+                  className="input-field flex-1"
+                />
+                <button
+                  onClick={handleSaveToken}
+                  disabled={savingToken || !ghToken.trim()}
+                  className="btn-primary disabled:opacity-50"
+                >
+                  {savingToken ? '...' : 'Enregistrer'}
+                </button>
+              </div>
+              {tokenError && <p className="text-2xs text-status-error">{tokenError}</p>}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <h2 className="text-xs font-semibold text-txt-muted uppercase tracking-wider">Systeme</h2>
 
       {/* Health checks */}
       {health && (
