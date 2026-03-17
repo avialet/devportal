@@ -1,3 +1,5 @@
+import { buildDomain, type EnvName } from '@devportal/shared';
+
 const GITHUB_API = 'https://api.github.com';
 
 async function ghRequest<T>(path: string, token: string, options: RequestInit = {}): Promise<T> {
@@ -128,9 +130,73 @@ export async function branchExists(token: string, owner: string, repo: string, b
 }
 
 /**
- * Create repo with dev + staging + main branches.
- * auto_init creates 'main' branch automatically.
- * We then create 'dev' and 'staging' from main.
+ * Update a file in a repo (create or update)
+ */
+async function updateFile(
+  token: string,
+  owner: string,
+  repo: string,
+  path: string,
+  content: string,
+  message: string,
+  branch: string,
+  sha?: string
+): Promise<void> {
+  const body: Record<string, unknown> = {
+    message,
+    content: Buffer.from(content).toString('base64'),
+    branch,
+  };
+  if (sha) body.sha = sha;
+
+  await ghRequest(`/repos/${owner}/${repo}/contents/${path}`, token, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Generate a README.md for a new project
+ */
+function generateReadme(name: string, description?: string): string {
+  const slug = name.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+  const devDomain = buildDomain(slug, 'development' as EnvName);
+  const stagingDomain = buildDomain(slug, 'staging' as EnvName);
+  const prodDomain = buildDomain(slug, 'production' as EnvName);
+
+  return `# ${name}
+
+${description || `Projet ${name} gere par DevPortal.`}
+
+## Environnements
+
+| Environnement | Branche | URL |
+|--------------|---------|-----|
+| Development | \`dev\` | https://${devDomain} |
+| Staging | \`staging\` | https://${stagingDomain} |
+| Production | \`main\` | https://${prodDomain} |
+
+## Workflow
+
+- **dev** : deploiement automatique a chaque push
+- **staging** : deploiement automatique a chaque push
+- **production** : deploiement manuel via DevPortal
+
+## Getting Started
+
+\`\`\`bash
+git clone <repo-url>
+cd ${slug}
+npm install
+npm run dev
+\`\`\`
+`;
+}
+
+/**
+ * Create repo with dev + staging + main branches and a pre-filled README.
+ * auto_init creates 'main' branch with a default README.
+ * We then update the README with project info, and create dev + staging branches.
  */
 export async function createRepoWithBranches(
   token: string,
@@ -140,11 +206,36 @@ export async function createRepoWithBranches(
   const repo = await createRepo(token, name, options);
   const owner = repo.owner.login;
 
-  // Wait a moment for GitHub to finish auto_init
+  // Wait for GitHub to finish auto_init
   await new Promise(r => setTimeout(r, 2000));
 
-  // Ensure main exists (it should from auto_init)
   const mainBranch = repo.default_branch || 'main';
+
+  // Update README with project info
+  try {
+    // Get existing README SHA
+    const existing = await ghRequest<{ sha: string }>(
+      `/repos/${owner}/${repo.name}/contents/README.md?ref=${mainBranch}`,
+      token
+    );
+    await updateFile(
+      token, owner, repo.name,
+      'README.md',
+      generateReadme(name, options.description),
+      'docs: initialize project README with environment info',
+      mainBranch,
+      existing.sha
+    );
+  } catch {
+    // README doesn't exist yet, create it
+    await updateFile(
+      token, owner, repo.name,
+      'README.md',
+      generateReadme(name, options.description),
+      'docs: initialize project README with environment info',
+      mainBranch
+    );
+  }
 
   // Create dev and staging branches from main
   for (const branch of ['dev', 'staging']) {
