@@ -449,8 +449,18 @@ router.delete('/:uuid', async (req: AuthRequest, res: Response): Promise<void> =
     }
     // Remove from portal DB
     runQuery('DELETE FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
-    // Delete from Coolify
+    // Delete apps from Coolify first (project can't be deleted with resources)
     try {
+      const project = await coolify.getProject(uuid);
+      const envs = project.environments ?? [];
+      for (const env of envs) {
+        try {
+          const detail = await coolify.getEnvironmentDetail(uuid, env.name);
+          for (const app of detail.applications ?? []) {
+            try { await coolify.deleteApplication(app.uuid); } catch { /* skip */ }
+          }
+        } catch { /* skip */ }
+      }
       await coolify.deleteProject(uuid);
     } catch {
       // Coolify project may not exist or already deleted

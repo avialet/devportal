@@ -115,6 +115,10 @@ export async function createPublicApp(params: CreateAppParams): Promise<CoolifyA
   });
 }
 
+export async function deleteApplication(uuid: string): Promise<void> {
+  await request(`/applications/${uuid}`, { method: 'DELETE' });
+}
+
 export async function updateApplication(uuid: string, data: Record<string, unknown>): Promise<void> {
   await request(`/applications/${uuid}`, {
     method: 'PATCH',
