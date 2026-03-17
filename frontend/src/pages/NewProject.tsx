@@ -199,6 +199,7 @@ export default function NewProject() {
           <div className="panel-header -mx-3 -mt-3 mb-3">Configurer GitHub</div>
           <p className="text-2xs text-txt-muted mb-3">
             Un token GitHub (Personal Access Token) avec les droits <code className="bg-surface-2 px-1">repo</code> est necessaire pour creer des depots et lister vos repos.
+            {' '}<a href="https://github.com/settings/tokens/new?scopes=repo,read:org&description=DevPortal" target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover underline">Creer un token</a>
           </p>
           <div className="flex gap-2">
             <input
