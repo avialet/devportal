@@ -1,4 +1,4 @@
-import type { AuthResponse, ApiError } from '@devportal/shared';
+import type { AuthResponse, ApiError, SecurityScan, ScanTool, ScanProgressEvent } from '@devportal/shared';
 
 const BASE = '/api';
 
@@ -129,6 +129,59 @@ export const api = {
   },
   deleteUser(id: number) {
     return request<{ status: string }>(`/users/${id}`, { method: 'DELETE' });
+  },
+
+  // Security scans
+  listScans(projectId?: number) {
+    const qs = projectId ? `?projectId=${projectId}` : '';
+    return request<{ scans: SecurityScan[]; running: number }>(`/security/scans${qs}`);
+  },
+  getScan(id: string) {
+    return request<SecurityScan>(`/security/scans/${id}`);
+  },
+  deleteScan(id: string) {
+    return request<{ status: string }>(`/security/scans/${id}`, { method: 'DELETE' });
+  },
+  startScan(targetUrl: string, tool: ScanTool, projectId?: number): EventSource {
+    // SSE via fetch — we use a custom approach since EventSource doesn't support POST
+    // Instead, we POST and read the stream manually
+    // Return a fake EventSource-like interface
+    const body = JSON.stringify({ targetUrl, tool, projectId });
+    const es = new EventTarget();
+    fetch(`${BASE}/security/scans`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body,
+    }).then(async (res) => {
+      const reader = res.body?.getReader();
+      if (!reader) return;
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              es.dispatchEvent(new CustomEvent('message', { detail: data }));
+            } catch { /* skip */ }
+          }
+        }
+      }
+      es.dispatchEvent(new CustomEvent('done'));
+    }).catch((err) => {
+      es.dispatchEvent(new CustomEvent('error', { detail: err }));
+    });
+    return es as unknown as EventSource;
+  },
+  getScanReportUrl(id: string, format?: string) {
+    const qs = format ? `?format=${format}` : '';
+    return `${BASE}/security/scans/${id}/report${qs}`;
   },
 };
 

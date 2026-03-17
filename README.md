@@ -216,3 +216,35 @@ npm run dev -w frontend    # http://localhost:5173 (proxy -> 3000)
 | Deploiements | GET | `/deployments/{uuid}` |
 
 > Note : L'endpoint de deploy est `POST /deploy` avec le body `{"uuid": "app_uuid"}`, pas `POST /applications/{uuid}/deploy`.
+
+## Scanner de securite (admin only)
+
+Scans automatises de penetration sur les apps deployees, via Docker (Nuclei + OWASP ZAP).
+
+### Outils
+
+| Outil | Image Docker | Type | Duree typique |
+|-------|-------------|------|---------------|
+| **Nuclei** | `projectdiscovery/nuclei:latest` | Templates (CVEs, misconfigs) | 1-5 min |
+| **ZAP Baseline** | `zaproxy/zap-stable` | Crawl passif | 2-5 min |
+| **ZAP Full** | `zaproxy/zap-stable` | Crawl + fuzz actif | 15-60 min |
+
+### Architecture
+
+Le backend spawn des containers Docker via le socket Docker monte (`/var/run/docker.sock`). Les containers scanner tournent sur le reseau `coolify` pour atteindre les apps via Traefik. Les rapports sont stockes dans `DATA_DIR/reports/{scanId}/`.
+
+### API Security
+
+| Methode | Endpoint | Description |
+|---------|----------|-------------|
+| `POST` | `/api/security/scans` | Lancer un scan (reponse SSE) |
+| `GET` | `/api/security/scans` | Lister les scans |
+| `GET` | `/api/security/scans/:id` | Detail d'un scan |
+| `GET` | `/api/security/scans/:id/report` | Rapport brut |
+| `DELETE` | `/api/security/scans/:id` | Annuler ou supprimer |
+
+### Prerequis deploiement
+
+1. Docker socket monte : `-v /var/run/docker.sock:/var/run/docker.sock` (via `custom_docker_run_options`)
+2. Images pre-pullees sur le VPS : `docker pull projectdiscovery/nuclei:latest && docker pull zaproxy/zap-stable`
+3. Max 2 scans concurrents

@@ -38,6 +38,21 @@ CREATE TABLE IF NOT EXISTS activity_log (
   details TEXT,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS security_scans (
+  id TEXT PRIMARY KEY,
+  project_id INTEGER REFERENCES portal_projects(id),
+  target_url TEXT NOT NULL,
+  tool TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  started_at DATETIME,
+  finished_at DATETIME,
+  report_path TEXT,
+  findings_summary TEXT,
+  error TEXT,
+  triggered_by INTEGER REFERENCES users(id),
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
 `;
 
 let db: Database;

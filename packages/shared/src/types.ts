@@ -84,3 +84,44 @@ export interface ApiError {
   error: string;
   message: string;
 }
+
+// --- Security Scanner ---
+
+export type ScanTool = 'nuclei' | 'zap-baseline' | 'zap-full';
+export type ScanStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export interface FindingsSummary {
+  critical: number;
+  high: number;
+  medium: number;
+  low: number;
+  info: number;
+}
+
+export interface SecurityScan {
+  id: string;
+  projectId: number | null;
+  targetUrl: string;
+  tool: ScanTool;
+  status: ScanStatus;
+  startedAt: string | null;
+  finishedAt: string | null;
+  reportPath: string | null;
+  findingsSummary: FindingsSummary | null;
+  error: string | null;
+  triggeredBy: number;
+  createdAt: string;
+}
+
+export interface StartScanRequest {
+  targetUrl: string;
+  tool: ScanTool;
+  projectId?: number;
+}
+
+export interface ScanProgressEvent {
+  type: 'progress' | 'complete' | 'error';
+  scanId: string;
+  message?: string;
+  findingsSummary?: FindingsSummary;
+}

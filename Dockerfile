@@ -25,6 +25,9 @@ RUN npm run build -w backend
 FROM node:20-alpine
 WORKDIR /app
 
+# Docker CLI for spawning scanner containers (Nuclei, ZAP)
+RUN apk add --no-cache docker-cli
+
 COPY --from=builder /app/backend/dist ./backend/dist
 COPY --from=builder /app/backend/package.json ./backend/
 COPY --from=builder /app/frontend/dist ./frontend/dist

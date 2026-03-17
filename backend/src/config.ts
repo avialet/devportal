@@ -29,4 +29,6 @@ export const config = {
   oidcRedirectUri: env('OIDC_REDIRECT_URI', ''),
   sessionSecret: env('SESSION_SECRET', 'dev-session-secret-change-me'),
   portalUrl: env('PORTAL_URL', 'http://localhost:5173'),
+  // Security scanner
+  reportsDir: env('REPORTS_DIR', ''),
 } as const;
