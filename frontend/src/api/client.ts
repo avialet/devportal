@@ -27,19 +27,87 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return res.json();
 }
 
+// --- Project types from API ---
+export interface ProjectSummary {
+  uuid: string;
+  name: string;
+  description: string | null;
+  githubUrl: string | null;
+  portalManaged: boolean;
+  environments: string[];
+  apps: { env: string; uuid: string; fqdn: string | null; status: string }[];
+  createdAt: string | null;
+}
+
+export interface ProjectDetailEnv {
+  name: string;
+  apps: {
+    uuid: string;
+    name: string;
+    fqdn: string | null;
+    status: string;
+    gitRepository: string;
+    gitBranch: string;
+    buildPack: string;
+  }[];
+}
+
+export interface ProjectDetailResponse {
+  uuid: string;
+  name: string;
+  description: string | null;
+  githubUrl: string | null;
+  portalManaged: boolean;
+  environments: ProjectDetailEnv[];
+}
+
+export interface Deployment {
+  id: number;
+  uuid: string;
+  status: string;
+  created_at: string;
+  finished_at: string | null;
+  commit: string | null;
+  logs: string;
+}
+
 export const api = {
+  // Auth
   login(email: string, password: string) {
     return request<AuthResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     });
   },
-
   me() {
     return request<{ user: AuthResponse['user'] }>('/auth/me');
   },
 
-  health() {
-    return request<{ status: string }>('/health');
+  // Projects
+  listProjects() {
+    return request<ProjectSummary[]>('/projects');
+  },
+  getProject(uuid: string) {
+    return request<ProjectDetailResponse>(`/projects/${uuid}`);
+  },
+
+  // Apps
+  deployApp(uuid: string) {
+    return request<{ deployment_uuid: string }>(`/apps/${uuid}/deploy`, { method: 'POST' });
+  },
+  stopApp(uuid: string) {
+    return request<{ status: string }>(`/apps/${uuid}/stop`, { method: 'POST' });
+  },
+  restartApp(uuid: string) {
+    return request<{ deployment_uuid: string }>(`/apps/${uuid}/restart`, { method: 'POST' });
+  },
+  getDeployments(appUuid: string) {
+    return request<Deployment[]>(`/apps/${appUuid}/deployments`);
+  },
+  getDeployment(deploymentUuid: string) {
+    return request<Deployment>(`/apps/deployments/${deploymentUuid}`);
+  },
+  getAppLogs(appUuid: string) {
+    return request<{ logs: string }>(`/apps/${appUuid}/logs`);
   },
 };

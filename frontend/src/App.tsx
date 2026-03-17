@@ -1,6 +1,8 @@
+import { Routes, Route } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import ProjectDetail from './pages/ProjectDetail';
 import Layout from './components/Layout';
 
 export default function App() {
@@ -20,7 +22,10 @@ export default function App() {
 
   return (
     <Layout user={user} onLogout={logout}>
-      <Dashboard user={user} />
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/projects/:uuid" element={<ProjectDetail />} />
+      </Routes>
     </Layout>
   );
 }
