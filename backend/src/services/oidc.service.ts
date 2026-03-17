@@ -9,10 +9,14 @@ export async function getOidcConfig(): Promise<client.Configuration> {
   const issuerUrl = config.oidcIssuerInternal || config.oidcIssuer;
   if (!issuerUrl) throw new Error('OIDC_ISSUER not configured');
 
+  // allowInsecureRequests needed for internal HTTP container-to-container communication
+  const useHttp = issuerUrl.startsWith('http://');
   oidcConfig = await client.discovery(
     new URL(issuerUrl),
     config.oidcClientId,
     config.oidcClientSecret,
+    undefined,
+    useHttp ? { execute: [client.allowInsecureRequests] } : undefined,
   );
 
   return oidcConfig;
