@@ -5,6 +5,9 @@ import { runWizard } from '../services/project-wizard.service.js';
 import * as monitoring from '../services/monitoring.service.js';
 import { queryAll, queryOne, runQuery, logActivity } from '../db/database.js';
 import { buildFqdn, ENV_NAMES, type EnvName } from '@devportal/shared';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import { config } from '../config.js';
 
 function param(req: AuthRequest, name: string): string {
   const v = req.params[name];
@@ -80,14 +83,27 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
           })
         );
 
+        // Monitor status per env
+        const projectMonitorList = portal
+          ? monitoring.getMonitorsForProject(portal.id)
+          : [];
+        const monitorStatus: Record<string, { status: 'up' | 'down' | 'pending'; uptime: number | null }> = {};
+        for (const m of projectMonitorList) {
+          const s = monitoring.getMonitorStatus(m.id);
+          const uptime = monitoring.getUptimePercent(m.id, 24);
+          monitorStatus[m.environment ?? 'unknown'] = { status: s.status, uptime };
+        }
+
         return {
           uuid: cp.uuid,
           name: cp.name,
           description: cp.description,
           githubUrl: portal?.github_url ?? null,
           portalManaged: !!portal,
+          portalId: portal?.id ?? null,
           environments: envs.map(e => e.name),
           apps,
+          monitorStatus,
           createdAt: portal?.created_at ?? null,
         };
       })
@@ -170,6 +186,75 @@ router.get('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
   } catch (err) {
     console.error('Error getting project:', err);
     res.status(502).json({ error: 'coolify_error', message: 'Impossible de recuperer le projet' });
+  }
+});
+
+// Screenshot endpoint - fetch via microlink and cache locally
+router.get('/:uuid/screenshot', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uuid = param(req, 'uuid');
+
+    // Find target URL - prefer portal project (use buildFqdn), else Coolify fqdn
+    let targetUrl: string | null = null;
+    const portal = queryOne<DbProject>('SELECT * FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+    if (portal) {
+      targetUrl = buildFqdn(portal.name, 'production');
+    } else {
+      try {
+        const project = await coolify.getProject(uuid);
+        const envs = project.environments ?? [];
+        const prodEnv = envs.find(e => e.name === 'production') ?? envs[0];
+        if (prodEnv) {
+          const detail = await coolify.getEnvironmentDetail(uuid, prodEnv.name);
+          const app = detail.applications?.[0];
+          if (app?.fqdn) {
+            targetUrl = app.fqdn.startsWith('http') ? app.fqdn : `https://${app.fqdn}`;
+          }
+        }
+      } catch { /* skip */ }
+    }
+
+    if (!targetUrl) {
+      res.status(404).json({ error: 'no_url' });
+      return;
+    }
+
+    // Check cache (1h TTL)
+    const cacheDir = join(config.dataDir, 'screenshots');
+    const cachePath = join(cacheDir, `${uuid}.png`);
+    try {
+      if (existsSync(cachePath)) {
+        const age = Date.now() - statSync(cachePath).mtime.getTime();
+        if (age < 3_600_000) {
+          res.setHeader('Content-Type', 'image/png');
+          res.setHeader('Cache-Control', 'public, max-age=3600');
+          res.send(readFileSync(cachePath));
+          return;
+        }
+      }
+    } catch { /* cache miss */ }
+
+    // Fetch screenshot from microlink
+    const mlRes = await fetch(
+      `https://api.microlink.io/?url=${encodeURIComponent(targetUrl)}&screenshot=true&meta=false`,
+      { signal: AbortSignal.timeout(30_000) }
+    );
+    const mlData = await mlRes.json() as { status: string; data?: { screenshot?: { url: string } } };
+
+    if (mlData.status === 'success' && mlData.data?.screenshot?.url) {
+      const imgRes = await fetch(mlData.data.screenshot.url, { signal: AbortSignal.timeout(15_000) });
+      const buffer = Buffer.from(await imgRes.arrayBuffer());
+      mkdirSync(cacheDir, { recursive: true });
+      writeFileSync(cachePath, buffer);
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+      res.send(buffer);
+    } else {
+      res.status(503).json({ error: 'screenshot_failed' });
+    }
+  } catch (err: any) {
+    console.error('[Screenshot]', err.message);
+    res.status(500).json({ error: 'error', message: err.message });
   }
 });
 

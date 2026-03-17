@@ -112,6 +112,19 @@ export function getMonitorsForProject(projectId: number): MonitorRow[] {
   return queryAll<MonitorRow>('SELECT * FROM monitors WHERE project_id = ? AND enabled = 1', [projectId]);
 }
 
+export function getUptimePercent(monitorId: number, hours = 24): number | null {
+  const rows = queryAll<{ total: number; up: number }>(
+    `SELECT COUNT(*) as total,
+            SUM(CASE WHEN status_code >= 200 AND status_code < 400 THEN 1 ELSE 0 END) as up
+     FROM monitor_checks
+     WHERE monitor_id = ? AND checked_at > datetime('now', '-${hours} hours')`,
+    [monitorId]
+  );
+  const row = rows[0];
+  if (!row || row.total === 0) return null;
+  return Math.round((row.up / row.total) * 100);
+}
+
 export function isConnected(): boolean {
   return checkTimer !== null;
 }

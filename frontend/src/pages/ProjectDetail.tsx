@@ -183,6 +183,17 @@ export default function ProjectDetail() {
                 {project.githubUrl.replace('https://github.com/', '')}
               </a>
             )}
+            {/* Screenshot thumbnail - only for portal-managed projects */}
+            {project.portalManaged && (
+              <div className="mb-3 border border-border overflow-hidden" style={{ maxWidth: '320px', aspectRatio: '16/9' }}>
+                <img
+                  src={`/api/projects/${project.uuid}/screenshot`}
+                  alt={`${project.name} screenshot`}
+                  className="w-full h-full object-cover object-top"
+                  onError={e => (e.currentTarget.parentElement!.style.display = 'none')}
+                />
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0 flex-wrap">

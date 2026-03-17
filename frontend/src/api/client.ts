@@ -28,8 +28,10 @@ export interface ProjectSummary {
   description: string | null;
   githubUrl: string | null;
   portalManaged: boolean;
+  portalId: number | null;
   environments: string[];
   apps: { env: string; uuid: string; fqdn: string | null; status: string }[];
+  monitorStatus: Record<string, { status: 'up' | 'down' | 'pending'; uptime: number | null }>;
   createdAt: string | null;
 }
 
