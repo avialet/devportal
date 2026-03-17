@@ -16,6 +16,7 @@ export default function Security() {
   const [loading, setLoading] = useState(true);
 
   const [targetUrl, setTargetUrl] = useState('');
+  const [urlMode, setUrlMode] = useState<'project' | 'custom'>('project');
   const [tool, setTool] = useState<ScanTool>('nuclei');
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState<string[]>([]);
@@ -72,16 +73,6 @@ export default function Security() {
     } catch { /* ignore */ }
   }
 
-  const appUrls: string[] = [];
-  for (const p of projects) {
-    for (const app of p.apps) {
-      if (app.fqdn) {
-        const url = app.fqdn.startsWith('http') ? app.fqdn : `https://${app.fqdn}`;
-        appUrls.push(url);
-      }
-    }
-  }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -114,21 +105,58 @@ export default function Security() {
       {/* Launch form */}
       <div className="panel p-3">
         <div className="panel-header -mx-3 -mt-3 mb-3">Lancer un scan</div>
+
+        {/* Source selector: choose from project apps or enter custom URL */}
+        <div className="flex items-center gap-2 mb-3">
+          <button
+            onClick={() => { setUrlMode('project'); setTargetUrl(''); }}
+            className={`text-2xs px-2 py-1 ${urlMode === 'project' ? 'bg-accent/20 text-accent border border-accent/40' : 'bg-surface-2 text-txt-muted border border-border'}`}
+          >
+            Depuis un projet
+          </button>
+          <button
+            onClick={() => { setUrlMode('custom'); setTargetUrl(''); }}
+            className={`text-2xs px-2 py-1 ${urlMode === 'custom' ? 'bg-accent/20 text-accent border border-accent/40' : 'bg-surface-2 text-txt-muted border border-border'}`}
+          >
+            URL personnalisee
+          </button>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div>
             <label className="block text-2xs text-txt-muted mb-1">URL cible</label>
-            <input
-              type="url"
-              value={targetUrl}
-              onChange={e => setTargetUrl(e.target.value)}
-              placeholder="https://app.51.254.131.12.nip.io"
-              className="input-field w-full"
-              list="app-urls"
-            />
-            {appUrls.length > 0 && (
-              <datalist id="app-urls">
-                {appUrls.map(u => <option key={u} value={u} />)}
-              </datalist>
+            {urlMode === 'project' ? (
+              <select
+                value={targetUrl}
+                onChange={e => setTargetUrl(e.target.value)}
+                className="input-field w-full"
+              >
+                <option value="">-- Choisir une app --</option>
+                {projects.map(p => {
+                  const projectApps = p.apps.filter(a => a.fqdn);
+                  if (projectApps.length === 0) return null;
+                  return (
+                    <optgroup key={p.uuid} label={p.name}>
+                      {projectApps.map(app => {
+                        const url = app.fqdn!.startsWith('http') ? app.fqdn! : `https://${app.fqdn}`;
+                        return (
+                          <option key={app.uuid} value={url}>
+                            [{app.env}] {url.replace('https://', '')}
+                          </option>
+                        );
+                      })}
+                    </optgroup>
+                  );
+                })}
+              </select>
+            ) : (
+              <input
+                type="url"
+                value={targetUrl}
+                onChange={e => setTargetUrl(e.target.value)}
+                placeholder="https://example.com"
+                className="input-field w-full"
+              />
             )}
           </div>
           <div>
