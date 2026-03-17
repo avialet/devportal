@@ -1,0 +1,111 @@
+import initSqlJs, { type Database } from 'sql.js';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
+import { join } from 'path';
+import { config } from '../config.js';
+import bcrypt from 'bcryptjs';
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  email TEXT UNIQUE NOT NULL,
+  password_hash TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'developer',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS portal_projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  coolify_project_uuid TEXT UNIQUE NOT NULL,
+  github_url TEXT NOT NULL,
+  created_by INTEGER REFERENCES users(id),
+  dev_app_uuid TEXT,
+  staging_app_uuid TEXT,
+  prod_app_uuid TEXT,
+  dev_monitor_id INTEGER,
+  staging_monitor_id INTEGER,
+  prod_monitor_id INTEGER,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS activity_log (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER REFERENCES users(id),
+  project_id INTEGER REFERENCES portal_projects(id),
+  action TEXT NOT NULL,
+  details TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+`;
+
+let db: Database;
+
+function getDbPath(): string {
+  const dir = config.dataDir;
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+  return join(dir, 'portal.db');
+}
+
+export async function initDatabase(): Promise<void> {
+  const SQL = await initSqlJs();
+  const dbPath = getDbPath();
+
+  if (existsSync(dbPath)) {
+    const buffer = readFileSync(dbPath);
+    db = new SQL.Database(buffer);
+  } else {
+    db = new SQL.Database();
+  }
+
+  for (const stmt of SCHEMA.split(';').filter(s => s.trim())) {
+    db.run(stmt);
+  }
+  saveDb();
+
+  await seedAdmin();
+}
+
+function saveDb(): void {
+  const data = db.export();
+  writeFileSync(getDbPath(), Buffer.from(data));
+}
+
+async function seedAdmin(): Promise<void> {
+  const row = db.exec("SELECT id FROM users WHERE role = 'admin' LIMIT 1");
+  if (row.length > 0 && row[0].values.length > 0) return;
+
+  const hash = await bcrypt.hash(config.adminPassword, 10);
+  db.run(
+    'INSERT INTO users (email, password_hash, display_name, role) VALUES (?, ?, ?, ?)',
+    [config.adminEmail, hash, 'Admin', 'admin']
+  );
+  saveDb();
+  console.log(`Admin user created: ${config.adminEmail}`);
+}
+
+export function getDb(): Database {
+  if (!db) throw new Error('Database not initialized');
+  return db;
+}
+
+export function runQuery(sql: string, params: unknown[] = []): void {
+  db.run(sql, params as (string | number | null)[]);
+  saveDb();
+}
+
+export function queryAll<T>(sql: string, params: unknown[] = []): T[] {
+  const stmt = db.prepare(sql);
+  stmt.bind(params as (string | number | null)[]);
+  const results: T[] = [];
+  while (stmt.step()) {
+    results.push(stmt.getAsObject() as T);
+  }
+  stmt.free();
+  return results;
+}
+
+export function queryOne<T>(sql: string, params: unknown[] = []): T | undefined {
+  const results = queryAll<T>(sql, params);
+  return results[0];
+}
