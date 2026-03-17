@@ -142,3 +142,10 @@ export function queryOne<T>(sql: string, params: unknown[] = []): T | undefined 
   const results = queryAll<T>(sql, params);
   return results[0];
 }
+
+export function logActivity(userId: number | null, projectId: number | null, action: string, details?: string): void {
+  runQuery(
+    'INSERT INTO activity_log (user_id, project_id, action, details) VALUES (?, ?, ?, ?)',
+    [userId, projectId, action, details ?? null]
+  );
+}

@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 import * as coolify from '../services/coolify.service.js';
+import { logActivity } from '../db/database.js';
 
 function param(req: AuthRequest, name: string): string {
   const v = req.params[name];
@@ -26,6 +27,7 @@ router.get('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
 router.post('/:uuid/deploy', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const result = await coolify.deployApplication(param(req, 'uuid'));
+    logActivity(req.user?.id ?? null, null, 'deploy', param(req, 'uuid'));
     res.json(result);
   } catch (err) {
     console.error('Error deploying:', err);
@@ -37,6 +39,7 @@ router.post('/:uuid/deploy', async (req: AuthRequest, res: Response): Promise<vo
 router.post('/:uuid/stop', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     await coolify.stopApplication(param(req, 'uuid'));
+    logActivity(req.user?.id ?? null, null, 'stop', param(req, 'uuid'));
     res.json({ status: 'stopped' });
   } catch (err) {
     console.error('Error stopping:', err);
@@ -48,6 +51,7 @@ router.post('/:uuid/stop', async (req: AuthRequest, res: Response): Promise<void
 router.post('/:uuid/restart', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const result = await coolify.restartApplication(param(req, 'uuid'));
+    logActivity(req.user?.id ?? null, null, 'restart', param(req, 'uuid'));
     res.json(result);
   } catch (err) {
     console.error('Error restarting:', err);

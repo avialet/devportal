@@ -113,6 +113,19 @@ export const api = {
     return request<{ logs: string }>(`/apps/${appUuid}/logs${qs}`);
   },
 
+  // Dashboard
+  getStats() {
+    return request<DashboardStats>('/stats');
+  },
+  getActivity() {
+    return request<ActivityItem[]>('/activity');
+  },
+
+  // Projects (delete)
+  deleteProject(uuid: string) {
+    return request<{ status: string }>(`/projects/${uuid}`, { method: 'DELETE' });
+  },
+
   // Monitors
   getMonitors() {
     return request<MonitorsResponse>('/monitors');
@@ -171,6 +184,21 @@ export const api = {
     return `${BASE}/security/scans/${id}/report${qs}`;
   },
 };
+
+export interface DashboardStats {
+  projects: number;
+  services: { running: number; stopped: number; deploying: number; total: number };
+  monitors: { up: number; down: number; total: number };
+  recentScans: { id: string; targetUrl: string; tool: string; status: string; findings: any; createdAt: string }[];
+}
+
+export interface ActivityItem {
+  id: number;
+  action: string;
+  details: string | null;
+  userName: string;
+  createdAt: string;
+}
 
 export interface MonitorInfo {
   id: number;

@@ -3,7 +3,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { config } from '../config.js';
-import { queryOne, runQuery } from '../db/database.js';
+import { queryOne, runQuery, logActivity } from '../db/database.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 import { getOidcConfig, buildLoginUrl, handleCallback, mapGroupsToRole, isOidcConfigured } from '../services/oidc.service.js';
 import type { User } from '@devportal/shared';
@@ -141,6 +141,7 @@ router.get('/callback', async (req: AuthRequest, res: Response): Promise<void> =
       createdAt: dbUser.created_at,
     };
     req.session.user = user;
+    logActivity(user.id, null, 'login', user.email);
 
     // Redirect to frontend
     res.redirect(config.portalUrl);

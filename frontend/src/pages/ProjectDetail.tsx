@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { api, type ProjectDetailResponse, type Deployment } from '../api/client';
 import { useMonitors } from '../hooks/useMonitors';
 import MonitorBadge from '../components/MonitorBadge';
@@ -28,6 +28,7 @@ function envTag(name: string): { color: string; label: string } {
 
 export default function ProjectDetail() {
   const { uuid } = useParams<{ uuid: string }>();
+  const navigate = useNavigate();
   const { getStatus, getPing } = useMonitors();
   const [project, setProject] = useState<ProjectDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,6 +53,14 @@ export default function ProjectDetail() {
   }, [uuid]);
 
   useEffect(() => { loadProject(); }, [loadProject]);
+
+  async function handleDeleteProject() {
+    if (!uuid || !window.confirm('Supprimer ce projet du portal ? (Le projet Coolify ne sera pas supprime)')) return;
+    try {
+      await api.deleteProject(uuid);
+      navigate('/');
+    } catch { /* ignore */ }
+  }
 
   async function handleDeploy(appUuid: string) {
     setActionLoading(appUuid);
@@ -111,11 +120,14 @@ export default function ProjectDetail() {
     <div>
       <Link to="/" className="text-accent hover:text-accent-hover text-xs mb-2 inline-block">&larr; Projets</Link>
 
-      <div className="flex items-center gap-3 mb-3">
-        <h1 className="text-sm font-semibold text-txt-primary">{project.name}</h1>
-        {project.githubUrl && (
-          <span className="text-2xs text-txt-muted font-mono">{project.githubUrl.replace('https://github.com/', '')}</span>
-        )}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold text-txt-primary">{project.name}</h1>
+          {project.githubUrl && (
+            <span className="text-2xs text-txt-muted font-mono">{project.githubUrl.replace('https://github.com/', '')}</span>
+          )}
+        </div>
+        <button onClick={handleDeleteProject} className="btn-danger">Supprimer</button>
       </div>
 
       <div className="space-y-2">

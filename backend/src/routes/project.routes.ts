@@ -2,7 +2,7 @@ import { Router, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 import * as coolify from '../services/coolify.service.js';
 import { runWizard } from '../services/project-wizard.service.js';
-import { queryAll, queryOne } from '../db/database.js';
+import { queryAll, queryOne, runQuery, logActivity } from '../db/database.js';
 
 function param(req: AuthRequest, name: string): string {
   const v = req.params[name];
@@ -160,6 +160,21 @@ router.post('/create', async (req: AuthRequest, res: Response): Promise<void> =>
     res.write(`data: ${JSON.stringify({ step: 0, label: 'error', status: 'error', detail: String(err) })}\n\n`);
   } finally {
     res.end();
+  }
+});
+
+// Delete project
+router.delete('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uuid = param(req, 'uuid');
+    // Remove from portal DB if exists
+    runQuery('DELETE FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+    // Note: we don't delete from Coolify - that must be done manually for safety
+    logActivity(req.user?.id ?? null, null, 'delete_project', uuid);
+    res.json({ status: 'deleted' });
+  } catch (err) {
+    console.error('Error deleting project:', err);
+    res.status(502).json({ error: 'error', message: 'Erreur lors de la suppression' });
   }
 });
 
