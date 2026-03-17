@@ -22,18 +22,29 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
     const projects = await coolify.listProjects();
     const monitors = kuma.getAllMonitorStatuses();
 
-    // Count services by status across all projects
+    // Count services by status — need to fetch each project's environments + apps
     let running = 0, stopped = 0, deploying = 0;
-    for (const p of projects) {
-      for (const env of p.environments ?? []) {
-        for (const app of env.applications ?? []) {
-          if (app.status === 'running') running++;
-          else if (app.status === 'stopped' || app.status === 'exited') stopped++;
-          else if (app.status.includes('progress') || app.status.includes('building')) deploying++;
-          else stopped++;
-        }
-      }
-    }
+    await Promise.all(
+      projects.map(async (p) => {
+        try {
+          const fullProject = await coolify.getProject(p.uuid);
+          const envs = fullProject.environments ?? [];
+          await Promise.all(
+            envs.map(async (env) => {
+              try {
+                const detail = await coolify.getEnvironmentDetail(p.uuid, env.name);
+                for (const app of detail.applications ?? []) {
+                  if (app.status === 'running') running++;
+                  else if (app.status === 'stopped' || app.status === 'exited') stopped++;
+                  else if (app.status?.includes('progress') || app.status?.includes('building')) deploying++;
+                  else stopped++;
+                }
+              } catch { /* skip */ }
+            })
+          );
+        } catch { /* skip */ }
+      })
+    );
 
     // Recent scans
     const recentScans = queryAll<{
