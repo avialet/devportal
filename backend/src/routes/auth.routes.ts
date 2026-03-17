@@ -68,7 +68,10 @@ router.get('/login', async (_req: AuthRequest, res: Response): Promise<void> => 
     _req.session.oidcNonce = nonce;
 
     const url = buildLoginUrl(state, nonce);
-    res.redirect(url);
+    // Force session save before redirect to ensure cookie is set
+    _req.session.save(() => {
+      res.redirect(url);
+    });
   } catch (err) {
     console.error('OIDC login error:', err);
     res.status(500).json({ error: 'OIDC login failed' });
