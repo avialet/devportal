@@ -53,6 +53,12 @@ CREATE TABLE IF NOT EXISTS security_scans (
   triggered_by INTEGER REFERENCES users(id),
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS sessions (
+  sid TEXT PRIMARY KEY,
+  sess TEXT NOT NULL,
+  expired_at INTEGER NOT NULL
+);
 `;
 
 let db: Database;

@@ -123,4 +123,16 @@ router.delete('/:uuid/envs/:envUuid', async (req: AuthRequest, res: Response): P
   }
 });
 
+// Update environment variable
+router.patch('/:uuid/envs/:envUuid', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { key, value, is_build_time } = req.body;
+    await coolify.updateEnvVar(param(req, 'uuid'), param(req, 'envUuid'), { key, value, is_build_time });
+    res.json({ status: 'updated' });
+  } catch (err) {
+    console.error('Error updating env:', err);
+    res.status(502).json({ error: 'coolify_error', message: 'Erreur lors de la mise a jour' });
+  }
+});
+
 export default router;

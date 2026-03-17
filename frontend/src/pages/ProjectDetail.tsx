@@ -4,6 +4,7 @@ import { api, type ProjectDetailResponse, type Deployment } from '../api/client'
 import { useMonitors } from '../hooks/useMonitors';
 import MonitorBadge from '../components/MonitorBadge';
 import EnvVarEditor from '../components/EnvVarEditor';
+import LogViewer from '../components/LogViewer';
 
 function statusDot(status: string): string {
   if (status === 'running') return 'bg-status-ok';
@@ -35,6 +36,7 @@ export default function ProjectDetail() {
   const [deployments, setDeployments] = useState<Record<string, Deployment[]>>({});
   const [showLogs, setShowLogs] = useState<string | null>(null);
   const [showEnvs, setShowEnvs] = useState<string | null>(null);
+  const [showRuntimeLogs, setShowRuntimeLogs] = useState<string | null>(null);
 
   const loadProject = useCallback(async () => {
     if (!uuid) return;
@@ -160,7 +162,10 @@ export default function ProjectDetail() {
                               Stop
                             </button>
                             <button onClick={() => loadDeployments(app.uuid)} className="btn-secondary">
-                              {isShowingLogs ? 'Hide' : 'Logs'}
+                              {isShowingLogs ? 'Hide' : 'Deploys'}
+                            </button>
+                            <button onClick={() => setShowRuntimeLogs(showRuntimeLogs === app.uuid ? null : app.uuid)} className="btn-secondary">
+                              {showRuntimeLogs === app.uuid ? 'Hide Logs' : 'Logs'}
                             </button>
                             <button onClick={() => setShowEnvs(showEnvs === app.uuid ? null : app.uuid)} className="btn-secondary">
                               {showEnvs === app.uuid ? 'Hide' : 'Env'}
@@ -193,6 +198,8 @@ export default function ProjectDetail() {
                             ))}
                           </div>
                         )}
+
+                        {showRuntimeLogs === app.uuid && <LogViewer appUuid={app.uuid} />}
 
                         {showEnvs === app.uuid && <EnvVarEditor appUuid={app.uuid} />}
                       </div>

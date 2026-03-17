@@ -183,6 +183,13 @@ export async function deleteEnvVar(appUuid: string, envUuid: string): Promise<vo
   await request(`/applications/${appUuid}/envs/${envUuid}`, { method: 'DELETE' });
 }
 
+export async function updateEnvVar(appUuid: string, envUuid: string, data: { key?: string; value?: string; is_build_time?: boolean }): Promise<void> {
+  await request(`/applications/${appUuid}/envs/${envUuid}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
 // --- Servers ---
 
 export interface CoolifyServer {

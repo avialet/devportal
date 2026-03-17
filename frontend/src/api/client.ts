@@ -108,27 +108,14 @@ export const api = {
   getDeployment(deploymentUuid: string) {
     return request<Deployment>(`/apps/deployments/${deploymentUuid}`);
   },
-  getAppLogs(appUuid: string) {
-    return request<{ logs: string }>(`/apps/${appUuid}/logs`);
+  getAppLogs(appUuid: string, since?: number) {
+    const qs = since ? `?since=${since}` : '';
+    return request<{ logs: string }>(`/apps/${appUuid}/logs${qs}`);
   },
 
   // Monitors
   getMonitors() {
     return request<MonitorsResponse>('/monitors');
-  },
-
-  // Users
-  listUsers() {
-    return request<UserInfo[]>('/users');
-  },
-  createUser(data: { email: string; displayName: string; password: string; role?: string }) {
-    return request<{ status: string }>('/users', { method: 'POST', body: JSON.stringify(data) });
-  },
-  updateUserRole(id: number, role: string) {
-    return request<{ status: string }>(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
-  },
-  deleteUser(id: number) {
-    return request<{ status: string }>(`/users/${id}`, { method: 'DELETE' });
   },
 
   // Security scans
@@ -197,10 +184,3 @@ export interface MonitorsResponse {
   monitors: MonitorInfo[];
 }
 
-export interface UserInfo {
-  id: number;
-  email: string;
-  displayName: string;
-  role: string;
-  createdAt: string;
-}

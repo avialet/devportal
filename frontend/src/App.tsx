@@ -5,7 +5,6 @@ import Dashboard from './pages/Dashboard';
 import ProjectDetail from './pages/ProjectDetail';
 import NewProject from './pages/NewProject';
 import Monitoring from './pages/Monitoring';
-import Users from './pages/Users';
 import Security from './pages/Security';
 import Layout from './components/Layout';
 
@@ -31,7 +30,6 @@ export default function App() {
         <Route path="/new" element={<NewProject />} />
         <Route path="/monitoring" element={<Monitoring />} />
         <Route path="/security" element={<Security />} />
-        <Route path="/users" element={<Users />} />
         <Route path="/projects/:uuid" element={<ProjectDetail />} />
       </Routes>
     </Layout>

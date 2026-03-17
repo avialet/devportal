@@ -3,11 +3,11 @@ import cors from 'cors';
 import session from 'express-session';
 import { config } from './config.js';
 import { initDatabase } from './db/database.js';
+import { SqliteSessionStore } from './db/session-store.js';
 import authRoutes from './routes/auth.routes.js';
 import projectRoutes from './routes/project.routes.js';
 import appRoutes from './routes/app.routes.js';
 import monitorRoutes from './routes/monitor.routes.js';
-import userRoutes from './routes/user.routes.js';
 import securityRoutes from './routes/security.routes.js';
 import { initUptimeKuma } from './services/uptimekuma.service.js';
 import { fileURLToPath } from 'url';
@@ -27,25 +27,11 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Session middleware (for OIDC)
-app.use(session({
-  secret: config.sessionSecret,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: config.portalUrl.startsWith('https'),
-    httpOnly: true,
-    maxAge: 24 * 60 * 60 * 1000, // 24h
-    sameSite: 'lax',
-  },
-}));
-
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/apps', appRoutes);
 app.use('/api/monitors', monitorRoutes);
-app.use('/api/users', userRoutes);
 app.use('/api/security', securityRoutes);
 
 app.get('/api/health', (_req, res) => {
@@ -63,6 +49,21 @@ if (existsSync(frontendDist)) {
 
 async function main() {
   await initDatabase();
+
+  // Session middleware (for OIDC) - must be after DB init for SQLite store
+  app.use(session({
+    store: new SqliteSessionStore(),
+    secret: config.sessionSecret,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: config.portalUrl.startsWith('https'),
+      httpOnly: true,
+      maxAge: 24 * 60 * 60 * 1000, // 24h
+      sameSite: 'lax',
+    },
+  }));
+
   await initUptimeKuma();
   app.listen(config.port, () => {
     console.log(`DevPortal backend running on port ${config.port}`);
