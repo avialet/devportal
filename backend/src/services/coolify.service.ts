@@ -61,6 +61,10 @@ export async function getProject(uuid: string): Promise<CoolifyProject> {
   return request<CoolifyProject>(`/projects/${uuid}`);
 }
 
+export async function deleteProject(uuid: string): Promise<void> {
+  await request(`/projects/${uuid}`, { method: 'DELETE' });
+}
+
 export async function createProject(name: string, description?: string): Promise<CoolifyProject> {
   return request<CoolifyProject>('/projects', {
     method: 'POST',

@@ -439,9 +439,22 @@ router.delete('/:uuid/members/:memberId', async (req: AuthRequest, res: Response
 router.delete('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const uuid = param(req, 'uuid');
-    // Remove from portal DB if exists
+    // Delete associated monitors
+    const portal = queryOne<DbProject>('SELECT * FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+    if (portal) {
+      const monitors = monitoring.getMonitorsForProject(portal.id);
+      for (const m of monitors) {
+        monitoring.deleteMonitor(m.id);
+      }
+    }
+    // Remove from portal DB
     runQuery('DELETE FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
-    // Note: we don't delete from Coolify - that must be done manually for safety
+    // Delete from Coolify
+    try {
+      await coolify.deleteProject(uuid);
+    } catch {
+      // Coolify project may not exist or already deleted
+    }
     logActivity(req.user?.id ?? null, null, 'delete_project', uuid);
     res.json({ status: 'deleted' });
   } catch (err) {
