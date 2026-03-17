@@ -12,7 +12,7 @@ Developpeur (navigateur)
         | API calls
         v
   Backend Node.js (Express)
-      |-- Coolify API (http://coolify:8000/api/v1)
+      |-- Coolify API (http://coolify:8080/api/v1)
       |-- Uptime Kuma (http://uptime-kuma:3001 via Socket.IO)
       |-- SQLite (donnees locales)
 ```
@@ -101,7 +101,7 @@ La progression est streamee en temps reel via **Server-Sent Events (SSE)**.
 | `PORTAL_JWT_SECRET` | Secret JWT | requis en prod |
 | `PORTAL_ADMIN_EMAIL` | Email admin initial | `admin@portal.local` |
 | `PORTAL_ADMIN_PASSWORD` | Mot de passe admin initial | `admin` |
-| `COOLIFY_API_URL` | URL API Coolify | `http://coolify:8000/api/v1` |
+| `COOLIFY_API_URL` | URL API Coolify | `http://coolify:8080/api/v1` |
 | `COOLIFY_API_TOKEN` | Token API Coolify | requis en prod |
 | `UPTIME_KUMA_URL` | URL Uptime Kuma | `http://uptime-kuma:3001` |
 | `UPTIME_KUMA_USERNAME` | User Uptime Kuma | - |
