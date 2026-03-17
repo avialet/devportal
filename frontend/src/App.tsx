@@ -4,6 +4,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import ProjectDetail from './pages/ProjectDetail';
 import NewProject from './pages/NewProject';
+import Monitoring from './pages/Monitoring';
 import Layout from './components/Layout';
 
 export default function App() {
@@ -26,6 +27,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/new" element={<NewProject />} />
+        <Route path="/monitoring" element={<Monitoring />} />
         <Route path="/projects/:uuid" element={<ProjectDetail />} />
       </Routes>
     </Layout>

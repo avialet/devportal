@@ -5,6 +5,8 @@ import { initDatabase } from './db/database.js';
 import authRoutes from './routes/auth.routes.js';
 import projectRoutes from './routes/project.routes.js';
 import appRoutes from './routes/app.routes.js';
+import monitorRoutes from './routes/monitor.routes.js';
+import { initUptimeKuma } from './services/uptimekuma.service.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
@@ -20,6 +22,7 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/apps', appRoutes);
+app.use('/api/monitors', monitorRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', version: '1.0.0' });
@@ -36,6 +39,7 @@ if (existsSync(frontendDist)) {
 
 async function main() {
   await initDatabase();
+  await initUptimeKuma();
   app.listen(config.port, () => {
     console.log(`DevPortal backend running on port ${config.port}`);
   });

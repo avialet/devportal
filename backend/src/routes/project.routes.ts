@@ -18,6 +18,9 @@ interface DbProject {
   dev_app_uuid: string | null;
   staging_app_uuid: string | null;
   prod_app_uuid: string | null;
+  dev_monitor_id: number | null;
+  staging_monitor_id: number | null;
+  prod_monitor_id: number | null;
   created_at: string;
 }
 
@@ -110,6 +113,11 @@ router.get('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
       description: project.description,
       githubUrl: portal?.github_url ?? null,
       portalManaged: !!portal,
+      monitors: portal ? {
+        development: portal.dev_monitor_id,
+        staging: portal.staging_monitor_id,
+        production: portal.prod_monitor_id,
+      } : null,
       environments,
     });
   } catch (err) {

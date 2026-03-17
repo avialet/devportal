@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { api, type ProjectDetailResponse, type Deployment } from '../api/client';
+import { useMonitors } from '../hooks/useMonitors';
+import MonitorBadge from '../components/MonitorBadge';
 
 function statusColor(status: string): string {
   if (status === 'running') return 'bg-green-500';
@@ -31,6 +33,7 @@ function envBorderColor(name: string): string {
 
 export default function ProjectDetail() {
   const { uuid } = useParams<{ uuid: string }>();
+  const { getStatus, getPing } = useMonitors();
   const [project, setProject] = useState<ProjectDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -128,7 +131,15 @@ export default function ProjectDetail() {
         {sortedEnvs.map(env => (
           <div key={env.name} className={`bg-white rounded-xl shadow-sm border border-gray-200 border-l-4 ${envBorderColor(env.name)} overflow-hidden`}>
             <div className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">{envLabel(env.name)}</h2>
+              <div className="flex items-center gap-3 mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">{envLabel(env.name)}</h2>
+                {project.monitors && (
+                  <MonitorBadge
+                    status={getStatus(project.monitors[env.name as keyof typeof project.monitors])}
+                    ping={getPing(project.monitors[env.name as keyof typeof project.monitors])}
+                  />
+                )}
+              </div>
 
               {env.apps.length === 0 ? (
                 <p className="text-gray-400 text-sm">Aucune application</p>

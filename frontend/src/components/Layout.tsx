@@ -51,7 +51,7 @@ export default function Layout({ user, onLogout, children }: Props) {
 
         <nav className="flex-1 p-4 space-y-1">
           {navLink('/', 'Projets', homeIcon)}
-          {navLink('/monitoring', 'Monitoring', monitorIcon, true)}
+          {navLink('/monitoring', 'Monitoring', monitorIcon)}
         </nav>
 
         <div className="p-4 border-t border-gray-800">

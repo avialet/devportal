@@ -58,6 +58,7 @@ export interface ProjectDetailResponse {
   description: string | null;
   githubUrl: string | null;
   portalManaged: boolean;
+  monitors: { development: number | null; staging: number | null; production: number | null } | null;
   environments: ProjectDetailEnv[];
 }
 
@@ -110,4 +111,21 @@ export const api = {
   getAppLogs(appUuid: string) {
     return request<{ logs: string }>(`/apps/${appUuid}/logs`);
   },
+
+  // Monitors
+  getMonitors() {
+    return request<MonitorsResponse>('/monitors');
+  },
 };
+
+export interface MonitorInfo {
+  id: number;
+  name: string;
+  status: 'up' | 'down' | 'pending';
+  ping: number | null;
+}
+
+export interface MonitorsResponse {
+  connected: boolean;
+  monitors: MonitorInfo[];
+}

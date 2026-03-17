@@ -1,6 +1,7 @@
 import * as coolify from './coolify.service.js';
+import * as kuma from './uptimekuma.service.js';
 import { runQuery } from '../db/database.js';
-import { buildFqdn, ENV_NAMES, type EnvName } from '@devportal/shared';
+import { buildFqdn, buildDomain, ENV_NAMES, type EnvName } from '@devportal/shared';
 
 export interface WizardInput {
   name: string;
@@ -106,16 +107,32 @@ export async function runWizard(
     }
   }
 
-  // Step 6: Monitor creation (placeholder for Phase 4)
+  // Step 6: Create Uptime Kuma monitors
   onProgress({ step: 6, label: 'Configuration des monitors', status: 'running' });
-  onProgress({ step: 6, label: 'Configuration des monitors', status: 'done', detail: 'Phase 4' });
+  const monitorIds: Partial<Record<EnvName, number>> = {};
+  try {
+    if (kuma.isConnected()) {
+      for (const envName of ENV_NAMES) {
+        const domain = buildDomain(name, envName);
+        const fqdn = buildFqdn(name, envName);
+        const monitorId = await kuma.addMonitor(`${envName}-${name}`, fqdn);
+        monitorIds[envName] = monitorId;
+      }
+      onProgress({ step: 6, label: 'Configuration des monitors', status: 'done', detail: '3 monitors crees' });
+    } else {
+      onProgress({ step: 6, label: 'Configuration des monitors', status: 'done', detail: 'Uptime Kuma non connecte - skip' });
+    }
+  } catch (err) {
+    // Non-blocking: monitors are nice-to-have
+    onProgress({ step: 6, label: 'Configuration des monitors', status: 'done', detail: `Warning: ${err}` });
+  }
 
   // Step 7: Save to portal database
   onProgress({ step: 7, label: 'Sauvegarde', status: 'running' });
   try {
     runQuery(
-      `INSERT INTO portal_projects (name, coolify_project_uuid, github_url, created_by, dev_app_uuid, staging_app_uuid, prod_app_uuid)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO portal_projects (name, coolify_project_uuid, github_url, created_by, dev_app_uuid, staging_app_uuid, prod_app_uuid, dev_monitor_id, staging_monitor_id, prod_monitor_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         name,
         project.uuid,
@@ -124,6 +141,9 @@ export async function runWizard(
         apps.development?.uuid ?? null,
         apps.staging?.uuid ?? null,
         apps.production?.uuid ?? null,
+        monitorIds.development ?? null,
+        monitorIds.staging ?? null,
+        monitorIds.production ?? null,
       ]
     );
     onProgress({ step: 7, label: 'Sauvegarde', status: 'done' });
