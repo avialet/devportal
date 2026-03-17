@@ -131,6 +131,13 @@ export async function initDatabase(): Promise<void> {
   // Migration: make password_hash optional for OIDC users
   // (handled by DEFAULT '' in schema for new DBs)
 
+  // Migration: add github_token column to users
+  try {
+    db.run('SELECT github_token FROM users LIMIT 1');
+  } catch {
+    db.run('ALTER TABLE users ADD COLUMN github_token TEXT');
+  }
+
   saveDb();
 
   await seedAdmin();

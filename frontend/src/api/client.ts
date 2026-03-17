@@ -219,6 +219,27 @@ export const api = {
     return `${BASE}/security/scans/${id}/report${qs}`;
   },
 
+  // GitHub
+  getGitHubStatus() {
+    return request<GitHubStatus>('/github/status');
+  },
+  saveGitHubToken(token: string) {
+    return request<{ status: string; login: string }>('/github/token', { method: 'PUT', body: JSON.stringify({ token }) });
+  },
+  removeGitHubToken() {
+    return request<{ status: string }>('/github/token', { method: 'DELETE' });
+  },
+  getGitHubOrgs() {
+    return request<GitHubOrgsResponse>('/github/orgs');
+  },
+  getGitHubRepos(org?: string) {
+    const qs = org ? `?org=${org}` : '';
+    return request<GitHubRepoInfo[]>(`/github/repos${qs}`);
+  },
+  createGitHubRepo(data: { name: string; org?: string; description?: string; isPrivate?: boolean }) {
+    return request<GitHubRepoInfo>('/github/repos', { method: 'POST', body: JSON.stringify(data) });
+  },
+
   // Health
   getHealth() {
     return request<HealthResponse>('/health');
@@ -284,5 +305,27 @@ export interface BackupInfo {
   name: string;
   size: number;
   createdAt: string;
+}
+
+export interface GitHubStatus {
+  configured: boolean;
+  login?: string;
+  avatarUrl?: string;
+  error?: string;
+}
+
+export interface GitHubOrgsResponse {
+  user: { login: string; avatarUrl: string };
+  orgs: { login: string; avatarUrl: string; description: string | null }[];
+}
+
+export interface GitHubRepoInfo {
+  fullName: string;
+  htmlUrl: string;
+  name: string;
+  isPrivate: boolean;
+  defaultBranch: string;
+  description: string | null;
+  owner: string;
 }
 
