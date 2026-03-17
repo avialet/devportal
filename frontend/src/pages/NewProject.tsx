@@ -96,130 +96,112 @@ export default function NewProject() {
   }
 
   function stepIcon(status: string) {
-    if (status === 'done') return (
-      <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-      </svg>
-    );
-    if (status === 'running') return (
-      <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-    );
-    if (status === 'error') return (
-      <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-      </svg>
-    );
-    return <div className="w-5 h-5 rounded-full border-2 border-gray-300" />;
+    if (status === 'done') return <span className="text-status-ok text-xs">&#10003;</span>;
+    if (status === 'running') return <div className="w-3 h-3 border border-accent border-t-transparent animate-spin" />;
+    if (status === 'error') return <span className="text-status-error text-xs">&#10007;</span>;
+    return <div className="w-3 h-3 border border-surface-4" />;
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <Link to="/" className="text-blue-600 hover:underline mb-4 inline-block">&larr; Retour</Link>
+    <div className="max-w-lg">
+      <Link to="/" className="text-accent hover:text-accent-hover text-xs mb-2 inline-block">&larr; Retour</Link>
 
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Nouveau projet</h1>
-      <p className="text-gray-500 mb-8">
-        Le wizard va automatiquement creer le projet, 3 environnements et configurer les domaines.
+      <h1 className="text-sm font-semibold text-txt-primary mb-1">Nouveau projet</h1>
+      <p className="text-2xs text-txt-muted mb-4">
+        Creation auto: projet + 3 envs + domaines + monitoring
       </p>
 
       {!creating && !done && (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Nom du projet *
-            </label>
+            <label className="block text-2xs text-txt-muted mb-1">Nom du projet *</label>
             <input
               type="text"
               value={name}
               onChange={e => setName(e.target.value)}
               required
               pattern="[a-zA-Z0-9-]+"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="input-field w-full"
               placeholder="mon-app"
             />
             {slug && (
-              <div className="mt-2 text-xs text-gray-400 space-y-1">
+              <div className="mt-1 text-2xs text-txt-muted font-mono space-y-0.5">
                 <p>dev-{slug}.51.254.131.12.nip.io</p>
                 <p>staging-{slug}.51.254.131.12.nip.io</p>
-                <p>{slug}.51.254.131.12.nip.io (prod)</p>
+                <p>{slug}.51.254.131.12.nip.io</p>
               </div>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              URL du repo GitHub *
-            </label>
+            <label className="block text-2xs text-txt-muted mb-1">URL GitHub *</label>
             <input
               type="url"
               value={githubUrl}
               onChange={e => setGithubUrl(e.target.value)}
               required
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="input-field w-full"
               placeholder="https://github.com/user/repo"
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Branche Git
-              </label>
+              <label className="block text-2xs text-txt-muted mb-1">Branche</label>
               <input
                 type="text"
                 value={gitBranch}
                 onChange={e => setGitBranch(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                placeholder="auto (dev/staging/main)"
+                className="input-field w-full"
+                placeholder="auto"
               />
-              <p className="text-xs text-gray-400 mt-1">Vide = branches auto par env</p>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Port expose
-              </label>
+              <label className="block text-2xs text-txt-muted mb-1">Port</label>
               <input
                 type="text"
                 value={portsExposes}
                 onChange={e => setPortsExposes(e.target.value)}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                className="input-field w-full"
                 placeholder="3000"
               />
             </div>
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
+            <div className="bg-red-900/20 border border-status-error/30 text-status-error px-3 py-2 text-xs">{error}</div>
           )}
 
-          <button
-            type="submit"
-            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 transition"
-          >
+          <button type="submit" className="w-full btn-primary py-2">
             Creer le projet
           </button>
         </form>
       )}
 
       {(creating || done) && (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            {done ? 'Projet cree !' : 'Creation en cours...'}
-          </h2>
+        <div className="panel p-3">
+          <div className="panel-header -mx-3 -mt-3 mb-3">
+            {done ? 'Projet cree' : 'Creation...'}
+          </div>
 
-          <div className="space-y-3">
+          <div className="space-y-1.5">
             {steps.map(step => (
-              <div key={step.step} className="flex items-center gap-3">
+              <div key={step.step} className="flex items-center gap-2">
                 {stepIcon(step.status)}
                 <div className="flex-1">
-                  <span className={`text-sm ${step.status === 'done' ? 'text-gray-900' : step.status === 'error' ? 'text-red-600' : step.status === 'running' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}>
+                  <span className={`text-xs ${
+                    step.status === 'done' ? 'text-txt-primary' :
+                    step.status === 'error' ? 'text-status-error' :
+                    step.status === 'running' ? 'text-accent font-medium' :
+                    'text-txt-muted'
+                  }`}>
                     {step.label}
                   </span>
                   {step.detail && step.status === 'done' && (
-                    <span className="text-xs text-gray-400 ml-2">{step.detail}</span>
+                    <span className="text-2xs text-txt-muted ml-2">{step.detail}</span>
                   )}
                   {step.detail && step.status === 'error' && (
-                    <p className="text-xs text-red-500 mt-0.5">{step.detail}</p>
+                    <p className="text-2xs text-status-error mt-0.5">{step.detail}</p>
                   )}
                 </div>
               </div>
@@ -227,22 +209,19 @@ export default function NewProject() {
           </div>
 
           {error && (
-            <div className="mt-4 bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
+            <div className="mt-3 bg-red-900/20 border border-status-error/30 text-status-error px-3 py-2 text-xs">{error}</div>
           )}
 
           {done && (
-            <div className="mt-6 flex gap-3">
+            <div className="mt-3 flex gap-2">
               <button
                 onClick={() => navigate(resultUuid ? `/projects/${resultUuid}` : '/')}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
+                className="btn-primary py-1.5"
               >
                 Voir le projet
               </button>
-              <Link
-                to="/"
-                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-200 transition"
-              >
-                Retour au dashboard
+              <Link to="/" className="btn-secondary py-1.5">
+                Dashboard
               </Link>
             </div>
           )}

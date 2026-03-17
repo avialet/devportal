@@ -4,9 +4,9 @@ import type { SecurityScan, ScanTool, FindingsSummary } from '@devportal/shared'
 import ScanReportViewer from '../components/ScanReportViewer';
 
 const TOOL_LABELS: Record<ScanTool, string> = {
-  'nuclei': 'Nuclei (scan rapide)',
-  'zap-baseline': 'ZAP Baseline (moyen)',
-  'zap-full': 'ZAP Full (approfondi)',
+  'nuclei': 'Nuclei (rapide)',
+  'zap-baseline': 'ZAP Baseline',
+  'zap-full': 'ZAP Full',
 };
 
 export default function Security() {
@@ -15,7 +15,6 @@ export default function Security() {
   const [projects, setProjects] = useState<ProjectSummary[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Form state
   const [targetUrl, setTargetUrl] = useState('');
   const [tool, setTool] = useState<ScanTool>('nuclei');
   const [scanning, setScanning] = useState(false);
@@ -52,7 +51,7 @@ export default function Security() {
         setScanning(false);
         loadScans();
       } else if (data.type === 'error') {
-        setProgress(prev => [...prev, `ERREUR: ${data.message}`]);
+        setProgress(prev => [...prev, `ERR: ${data.message}`]);
         setScanning(false);
         loadScans();
       } else if (data.type === 'started') {
@@ -73,7 +72,6 @@ export default function Security() {
     } catch { /* ignore */ }
   }
 
-  // Build quick URL list from project apps
   const appUrls: string[] = [];
   for (const p of projects) {
     for (const app of p.apps) {
@@ -87,7 +85,7 @@ export default function Security() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+        <div className="animate-spin w-5 h-5 border-2 border-accent border-t-transparent" />
       </div>
     );
   }
@@ -96,7 +94,7 @@ export default function Security() {
     const scan = scans.find(s => s.id === selectedScan);
     return (
       <div>
-        <button onClick={() => setSelectedScan(null)} className="text-blue-400 hover:text-blue-300 mb-4 flex items-center gap-1">
+        <button onClick={() => setSelectedScan(null)} className="text-accent hover:text-accent-hover mb-3 flex items-center gap-1 text-xs">
           <span>&larr;</span> Retour
         </button>
         {scan && <ScanReportViewer scan={scan} />}
@@ -105,24 +103,26 @@ export default function Security() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Scans de securite</h1>
-        <span className="text-sm text-gray-500">{running}/2 scans en cours</span>
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold text-txt-primary">Securite</h1>
+          <span className="text-2xs text-txt-muted">{running}/2 en cours</span>
+        </div>
       </div>
 
       {/* Launch form */}
-      <div className="bg-white rounded-xl border p-6 space-y-4">
-        <h2 className="font-semibold text-lg">Lancer un scan</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="panel p-3">
+        <div className="panel-header -mx-3 -mt-3 mb-3">Lancer un scan</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">URL cible</label>
+            <label className="block text-2xs text-txt-muted mb-1">URL cible</label>
             <input
               type="url"
               value={targetUrl}
               onChange={e => setTargetUrl(e.target.value)}
-              placeholder="https://mon-app.51.254.131.12.nip.io"
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              placeholder="https://app.51.254.131.12.nip.io"
+              className="input-field w-full"
               list="app-urls"
             />
             {appUrls.length > 0 && (
@@ -132,11 +132,11 @@ export default function Security() {
             )}
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Outil</label>
+            <label className="block text-2xs text-txt-muted mb-1">Outil</label>
             <select
               value={tool}
               onChange={e => setTool(e.target.value as ScanTool)}
-              className="w-full border rounded-lg px-3 py-2 text-sm"
+              className="input-field w-full"
             >
               {(Object.entries(TOOL_LABELS) as [ScanTool, string][]).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
@@ -147,65 +147,62 @@ export default function Security() {
             <button
               onClick={handleStartScan}
               disabled={!targetUrl || scanning || running >= 2}
-              className="w-full bg-blue-600 text-white rounded-lg px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full btn-primary py-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {scanning ? 'Scan en cours...' : 'Lancer le scan'}
+              {scanning ? 'En cours...' : 'Lancer'}
             </button>
           </div>
         </div>
 
-        {/* Progress console */}
         {progress.length > 0 && (
-          <div className="bg-gray-900 rounded-lg p-4 max-h-48 overflow-y-auto font-mono text-xs text-green-400">
+          <div className="bg-surface-0 border border-border mt-3 p-2 max-h-36 overflow-y-auto font-mono text-2xs text-status-ok">
             {progress.map((line, i) => (
-              <div key={i} className={line.startsWith('ERREUR') ? 'text-red-400' : ''}>{line}</div>
+              <div key={i} className={line.startsWith('ERR') ? 'text-status-error' : ''}>{line}</div>
             ))}
           </div>
         )}
       </div>
 
       {/* Scan history */}
-      <div className="bg-white rounded-xl border overflow-hidden">
-        <div className="px-6 py-4 border-b">
-          <h2 className="font-semibold text-lg">Historique des scans</h2>
-        </div>
+      <div className="panel overflow-hidden">
+        <div className="panel-header">Historique</div>
         {scans.length === 0 ? (
-          <div className="p-6 text-center text-gray-500">Aucun scan effectue</div>
+          <div className="p-6 text-center text-txt-muted text-xs">Aucun scan</div>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+          <table className="w-full">
+            <thead>
               <tr>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Cible</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Outil</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Statut</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Resultats</th>
-                <th className="text-left px-6 py-3 font-medium text-gray-500">Date</th>
-                <th className="text-right px-6 py-3 font-medium text-gray-500">Actions</th>
+                <th className="table-header">Cible</th>
+                <th className="table-header">Outil</th>
+                <th className="table-header">Statut</th>
+                <th className="table-header">Resultats</th>
+                <th className="table-header">Date</th>
+                <th className="table-header text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {scans.map(scan => (
-                <tr key={scan.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-3 font-mono text-xs truncate max-w-[200px]">{scan.targetUrl}</td>
-                  <td className="px-6 py-3">{scan.tool}</td>
-                  <td className="px-6 py-3">
+                <tr key={scan.id} className="hover:bg-surface-2/50 transition-colors">
+                  <td className="table-cell font-mono text-2xs text-txt-secondary truncate max-w-[180px]">{scan.targetUrl}</td>
+                  <td className="table-cell text-txt-secondary">{scan.tool}</td>
+                  <td className="table-cell">
                     <StatusBadge status={scan.status} />
                   </td>
-                  <td className="px-6 py-3">
+                  <td className="table-cell">
                     {scan.findingsSummary && <FindingsBadges findings={scan.findingsSummary} />}
-                    {scan.error && <span className="text-red-500 text-xs">{scan.error}</span>}
+                    {scan.error && <span className="text-status-error text-2xs">{scan.error}</span>}
                   </td>
-                  <td className="px-6 py-3 text-gray-500 text-xs">
+                  <td className="table-cell text-txt-muted text-2xs">
                     {new Date(scan.createdAt).toLocaleString('fr-FR')}
                   </td>
-                  <td className="px-6 py-3 text-right space-x-2">
+                  <td className="table-cell text-right space-x-2">
                     {scan.status === 'completed' && (
-                      <button onClick={() => setSelectedScan(scan.id)} className="text-blue-600 hover:underline text-xs">
+                      <button onClick={() => setSelectedScan(scan.id)} className="text-accent hover:text-accent-hover text-2xs">
                         Rapport
                       </button>
                     )}
-                    <button onClick={() => handleDelete(scan.id)} className="text-red-600 hover:underline text-xs">
-                      {scan.status === 'running' ? 'Annuler' : 'Supprimer'}
+                    <button onClick={() => handleDelete(scan.id)} className="text-status-error hover:text-red-300 text-2xs">
+                      {scan.status === 'running' ? 'Stop' : 'Del'}
                     </button>
                   </td>
                 </tr>
@@ -219,15 +216,15 @@ export default function Security() {
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const colors: Record<string, string> = {
-    pending: 'bg-gray-100 text-gray-600',
-    running: 'bg-blue-100 text-blue-700',
-    completed: 'bg-green-100 text-green-700',
-    failed: 'bg-red-100 text-red-700',
-    cancelled: 'bg-yellow-100 text-yellow-700',
+  const styles: Record<string, string> = {
+    pending: 'bg-surface-3 text-txt-muted',
+    running: 'bg-accent/15 text-accent',
+    completed: 'bg-green-900/30 text-status-ok',
+    failed: 'bg-red-900/30 text-status-error',
+    cancelled: 'bg-yellow-900/30 text-status-warn',
   };
   return (
-    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || 'bg-gray-100'}`}>
+    <span className={`px-1.5 py-0.5 text-2xs font-medium ${styles[status] || 'bg-surface-3 text-txt-muted'}`}>
       {status}
     </span>
   );
@@ -235,19 +232,19 @@ function StatusBadge({ status }: { status: string }) {
 
 function FindingsBadges({ findings }: { findings: FindingsSummary }) {
   const items: { label: string; count: number; color: string }[] = [
-    { label: 'C', count: findings.critical, color: 'bg-purple-600' },
-    { label: 'H', count: findings.high, color: 'bg-red-600' },
+    { label: 'C', count: findings.critical, color: 'bg-status-critical' },
+    { label: 'H', count: findings.high, color: 'bg-status-error' },
     { label: 'M', count: findings.medium, color: 'bg-orange-500' },
-    { label: 'L', count: findings.low, color: 'bg-yellow-500' },
-    { label: 'I', count: findings.info, color: 'bg-blue-500' },
+    { label: 'L', count: findings.low, color: 'bg-status-warn' },
+    { label: 'I', count: findings.info, color: 'bg-status-info' },
   ];
   const total = findings.critical + findings.high + findings.medium + findings.low + findings.info;
-  if (total === 0) return <span className="text-gray-400 text-xs">Aucun finding</span>;
+  if (total === 0) return <span className="text-txt-muted text-2xs">0 findings</span>;
 
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-0.5">
       {items.filter(i => i.count > 0).map(i => (
-        <span key={i.label} className={`${i.color} text-white text-xs px-1.5 py-0.5 rounded font-mono`}>
+        <span key={i.label} className={`${i.color} text-white text-2xs px-1 py-0.5 font-mono`}>
           {i.label}:{i.count}
         </span>
       ))}

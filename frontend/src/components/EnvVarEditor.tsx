@@ -69,24 +69,24 @@ export default function EnvVarEditor({ appUuid }: Props) {
   }
 
   if (loading) {
-    return <div className="text-sm text-gray-400 py-2">Chargement...</div>;
+    return <div className="text-2xs text-txt-muted py-1">Chargement...</div>;
   }
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="mt-2 space-y-1.5">
       {envVars.length > 0 && (
-        <div className="bg-gray-50 rounded-lg p-3 space-y-1.5">
+        <div className="bg-surface-0 border border-border p-2 space-y-1 font-mono text-2xs">
           {envVars.map(env => (
-            <div key={env.uuid} className="flex items-center gap-2 text-xs font-mono">
-              <span className="text-gray-700 font-medium">{env.key}</span>
-              <span className="text-gray-400">=</span>
-              <span className="text-gray-500 truncate max-w-[200px]">{env.value}</span>
+            <div key={env.uuid} className="flex items-center gap-1.5">
+              <span className="text-txt-primary font-medium">{env.key}</span>
+              <span className="text-txt-muted">=</span>
+              <span className="text-txt-secondary truncate max-w-[180px]">{env.value}</span>
               {env.is_build_time && (
-                <span className="text-xs bg-purple-100 text-purple-600 px-1.5 py-0.5 rounded">build</span>
+                <span className="text-2xs bg-status-critical/20 text-status-critical px-1 py-0.5">build</span>
               )}
               <button
                 onClick={() => handleDelete(env.uuid)}
-                className="ml-auto text-red-400 hover:text-red-600 transition"
+                className="ml-auto text-status-error hover:text-red-300 transition-colors"
                 title="Supprimer"
               >
                 &times;
@@ -96,40 +96,40 @@ export default function EnvVarEditor({ appUuid }: Props) {
         </div>
       )}
 
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-1.5">
         <input
           type="text"
           value={newKey}
           onChange={e => setNewKey(e.target.value)}
-          placeholder="CLE"
-          className="w-28 px-2 py-1.5 text-xs border border-gray-300 rounded font-mono focus:ring-1 focus:ring-blue-500 outline-none"
+          placeholder="KEY"
+          className="input-field w-24"
         />
         <input
           type="text"
           value={newValue}
           onChange={e => setNewValue(e.target.value)}
-          placeholder="valeur"
-          className="flex-1 px-2 py-1.5 text-xs border border-gray-300 rounded font-mono focus:ring-1 focus:ring-blue-500 outline-none"
+          placeholder="value"
+          className="input-field flex-1"
         />
-        <label className="flex items-center gap-1 text-xs text-gray-500">
+        <label className="flex items-center gap-1 text-2xs text-txt-muted">
           <input
             type="checkbox"
             checked={isBuildTime}
             onChange={e => setIsBuildTime(e.target.checked)}
-            className="rounded"
+            className="accent-accent"
           />
           build
         </label>
         <button
           onClick={handleAdd}
           disabled={saving || !newKey.trim()}
-          className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 transition disabled:opacity-50"
+          className="btn-primary disabled:opacity-50"
         >
           {saving ? '...' : '+'}
         </button>
       </div>
 
-      {error && <p className="text-xs text-red-500">{error}</p>}
+      {error && <p className="text-2xs text-status-error">{error}</p>}
     </div>
   );
 }

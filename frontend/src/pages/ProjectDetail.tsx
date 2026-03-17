@@ -5,31 +5,24 @@ import { useMonitors } from '../hooks/useMonitors';
 import MonitorBadge from '../components/MonitorBadge';
 import EnvVarEditor from '../components/EnvVarEditor';
 
-function statusColor(status: string): string {
-  if (status === 'running') return 'bg-green-500';
-  if (status === 'stopped' || status === 'exited') return 'bg-red-500';
-  if (status.includes('progress') || status.includes('building')) return 'bg-yellow-500';
-  return 'bg-gray-400';
+function statusDot(status: string): string {
+  if (status === 'running') return 'bg-status-ok';
+  if (status === 'stopped' || status === 'exited') return 'bg-status-error';
+  if (status.includes('progress') || status.includes('building')) return 'bg-status-warn';
+  return 'bg-txt-muted';
 }
 
-function statusBadge(status: string): { bg: string; text: string; label: string } {
-  if (status === 'running') return { bg: 'bg-green-100', text: 'text-green-700', label: 'En ligne' };
-  if (status === 'stopped' || status === 'exited') return { bg: 'bg-red-100', text: 'text-red-700', label: 'Arrete' };
-  if (status.includes('progress') || status.includes('building')) return { bg: 'bg-yellow-100', text: 'text-yellow-700', label: 'Deploiement...' };
-  return { bg: 'bg-gray-100', text: 'text-gray-600', label: status || 'Inconnu' };
+function statusLabel(status: string): string {
+  if (status === 'running') return 'running';
+  if (status === 'stopped' || status === 'exited') return 'stopped';
+  if (status.includes('progress') || status.includes('building')) return 'deploying';
+  return status || 'unknown';
 }
 
-function envLabel(name: string): string {
-  if (name === 'production') return 'Production';
-  if (name === 'staging') return 'Staging';
-  if (name === 'development') return 'Development';
-  return name;
-}
-
-function envBorderColor(name: string): string {
-  if (name === 'production') return 'border-l-red-500';
-  if (name === 'staging') return 'border-l-yellow-500';
-  return 'border-l-blue-500';
+function envTag(name: string): { color: string; label: string } {
+  if (name === 'production') return { color: 'border-status-error', label: 'prod' };
+  if (name === 'staging') return { color: 'border-status-warn', label: 'staging' };
+  return { color: 'border-accent', label: name };
 }
 
 export default function ProjectDetail() {
@@ -60,28 +53,22 @@ export default function ProjectDetail() {
 
   async function handleDeploy(appUuid: string) {
     setActionLoading(appUuid);
-    try {
-      await api.deployApp(appUuid);
-      setTimeout(loadProject, 2000);
-    } catch { /* ignore */ }
+    try { await api.deployApp(appUuid); setTimeout(loadProject, 2000); }
+    catch { /* ignore */ }
     finally { setActionLoading(null); }
   }
 
   async function handleStop(appUuid: string) {
     setActionLoading(appUuid);
-    try {
-      await api.stopApp(appUuid);
-      setTimeout(loadProject, 2000);
-    } catch { /* ignore */ }
+    try { await api.stopApp(appUuid); setTimeout(loadProject, 2000); }
+    catch { /* ignore */ }
     finally { setActionLoading(null); }
   }
 
   async function handleRestart(appUuid: string) {
     setActionLoading(appUuid);
-    try {
-      await api.restartApp(appUuid);
-      setTimeout(loadProject, 2000);
-    } catch { /* ignore */ }
+    try { await api.restartApp(appUuid); setTimeout(loadProject, 2000); }
+    catch { /* ignore */ }
     finally { setActionLoading(null); }
   }
 
@@ -97,7 +84,7 @@ export default function ProjectDetail() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
-        <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+        <div className="animate-spin w-5 h-5 border-2 border-accent border-t-transparent" />
       </div>
     );
   }
@@ -105,9 +92,9 @@ export default function ProjectDetail() {
   if (error || !project) {
     return (
       <div>
-        <Link to="/" className="text-blue-600 hover:underline mb-4 inline-block">&larr; Retour</Link>
-        <div className="bg-red-50 text-red-700 px-6 py-4 rounded-xl">
-          <p>{error || 'Projet introuvable'}</p>
+        <Link to="/" className="text-accent hover:text-accent-hover text-xs mb-3 inline-block">&larr; Retour</Link>
+        <div className="bg-red-900/20 border border-status-error/30 text-status-error px-3 py-2 text-xs">
+          {error || 'Projet introuvable'}
         </div>
       </div>
     );
@@ -120,21 +107,22 @@ export default function ProjectDetail() {
 
   return (
     <div>
-      <Link to="/" className="text-blue-600 hover:underline mb-4 inline-block">&larr; Retour aux projets</Link>
+      <Link to="/" className="text-accent hover:text-accent-hover text-xs mb-2 inline-block">&larr; Projets</Link>
 
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
+      <div className="flex items-center gap-3 mb-3">
+        <h1 className="text-sm font-semibold text-txt-primary">{project.name}</h1>
         {project.githubUrl && (
-          <p className="text-gray-400 mt-1 text-sm">{project.githubUrl}</p>
+          <span className="text-2xs text-txt-muted font-mono">{project.githubUrl.replace('https://github.com/', '')}</span>
         )}
       </div>
 
-      <div className="space-y-6">
-        {sortedEnvs.map(env => (
-          <div key={env.name} className={`bg-white rounded-xl shadow-sm border border-gray-200 border-l-4 ${envBorderColor(env.name)} overflow-hidden`}>
-            <div className="p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">{envLabel(env.name)}</h2>
+      <div className="space-y-2">
+        {sortedEnvs.map(env => {
+          const tag = envTag(env.name);
+          return (
+            <div key={env.name} className={`panel border-l-2 ${tag.color}`}>
+              <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+                <span className="text-xs font-semibold text-txt-primary uppercase">{tag.label}</span>
                 {project.monitors && (
                   <MonitorBadge
                     status={getStatus(project.monitors[env.name as keyof typeof project.monitors])}
@@ -144,109 +132,77 @@ export default function ProjectDetail() {
               </div>
 
               {env.apps.length === 0 ? (
-                <p className="text-gray-400 text-sm">Aucune application</p>
+                <div className="px-3 py-2 text-txt-muted text-2xs">Aucune application</div>
               ) : (
-                <div className="space-y-4">
+                <div className="divide-y divide-border">
                   {env.apps.map(app => {
-                    const badge = statusBadge(app.status);
                     const isLoading = actionLoading === app.uuid;
                     const appDeployments = deployments[app.uuid] ?? [];
                     const isShowingLogs = showLogs === app.uuid;
 
                     return (
-                      <div key={app.uuid}>
+                      <div key={app.uuid} className="px-3 py-2">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <span className={`w-2.5 h-2.5 rounded-full ${statusColor(app.status)}`} />
-                            <div>
-                              <span className="font-medium text-gray-900">{app.name}</span>
-                              <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${badge.bg} ${badge.text}`}>
-                                {badge.label}
-                              </span>
-                            </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`w-1.5 h-1.5 ${statusDot(app.status)}`} />
+                            <span className="text-xs font-medium text-txt-primary">{app.name}</span>
+                            <span className="text-2xs text-txt-muted">{statusLabel(app.status)}</span>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => handleDeploy(app.uuid)}
-                              disabled={isLoading}
-                              className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-                            >
-                              {isLoading ? '...' : 'Deployer'}
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => handleDeploy(app.uuid)} disabled={isLoading} className="btn-primary disabled:opacity-50">
+                              {isLoading ? '...' : 'Deploy'}
                             </button>
-                            <button
-                              onClick={() => handleRestart(app.uuid)}
-                              disabled={isLoading}
-                              className="text-xs bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-200 transition disabled:opacity-50"
-                            >
+                            <button onClick={() => handleRestart(app.uuid)} disabled={isLoading} className="btn-secondary disabled:opacity-50">
                               Restart
                             </button>
-                            <button
-                              onClick={() => handleStop(app.uuid)}
-                              disabled={isLoading}
-                              className="text-xs bg-red-50 text-red-600 px-3 py-1.5 rounded-lg hover:bg-red-100 transition disabled:opacity-50"
-                            >
+                            <button onClick={() => handleStop(app.uuid)} disabled={isLoading} className="btn-danger disabled:opacity-50">
                               Stop
                             </button>
-                            <button
-                              onClick={() => loadDeployments(app.uuid)}
-                              className="text-xs bg-gray-50 text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition"
-                            >
-                              {isShowingLogs ? 'Masquer' : 'Logs'}
+                            <button onClick={() => loadDeployments(app.uuid)} className="btn-secondary">
+                              {isShowingLogs ? 'Hide' : 'Logs'}
                             </button>
-                            <button
-                              onClick={() => setShowEnvs(showEnvs === app.uuid ? null : app.uuid)}
-                              className="text-xs bg-gray-50 text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition"
-                            >
-                              {showEnvs === app.uuid ? 'Masquer' : 'Env vars'}
+                            <button onClick={() => setShowEnvs(showEnvs === app.uuid ? null : app.uuid)} className="btn-secondary">
+                              {showEnvs === app.uuid ? 'Hide' : 'Env'}
                             </button>
                           </div>
                         </div>
 
-                        <div className="mt-2 flex items-center gap-4 text-xs text-gray-400">
+                        <div className="mt-1 flex items-center gap-3 text-2xs text-txt-muted">
                           {app.fqdn && (
-                            <a
-                              href={app.fqdn}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-blue-500 hover:underline"
-                            >
+                            <a href={app.fqdn} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent-hover">
                               {app.fqdn.replace('https://', '')}
                             </a>
                           )}
-                          <span>{app.gitBranch}</span>
-                          <span>{app.buildPack}</span>
+                          {app.gitBranch && <span className="font-mono">{app.gitBranch}</span>}
+                          {app.buildPack && <span>{app.buildPack}</span>}
                         </div>
 
                         {isShowingLogs && appDeployments.length > 0 && (
-                          <div className="mt-3 bg-gray-900 rounded-lg p-4 max-h-60 overflow-auto">
+                          <div className="mt-2 bg-surface-0 border border-border p-2 max-h-40 overflow-auto font-mono text-2xs">
                             {appDeployments.slice(0, 5).map(dep => (
-                              <div key={dep.uuid} className="mb-3 last:mb-0">
-                                <div className="flex items-center gap-2 text-xs mb-1">
-                                  <span className={`w-2 h-2 rounded-full ${
-                                    dep.status === 'finished' ? 'bg-green-500' :
-                                    dep.status === 'failed' ? 'bg-red-500' : 'bg-yellow-500'
-                                  }`} />
-                                  <span className="text-gray-400">{dep.status}</span>
-                                  <span className="text-gray-600">{new Date(dep.created_at).toLocaleString('fr-FR')}</span>
-                                  {dep.commit && <span className="text-gray-600 font-mono">{dep.commit.slice(0, 7)}</span>}
-                                </div>
+                              <div key={dep.uuid} className="flex items-center gap-2 py-0.5">
+                                <span className={`w-1.5 h-1.5 ${
+                                  dep.status === 'finished' ? 'bg-status-ok' :
+                                  dep.status === 'failed' ? 'bg-status-error' : 'bg-status-warn'
+                                }`} />
+                                <span className="text-txt-muted">{dep.status}</span>
+                                <span className="text-txt-muted">{new Date(dep.created_at).toLocaleString('fr-FR')}</span>
+                                {dep.commit && <span className="text-txt-muted">{dep.commit.slice(0, 7)}</span>}
                               </div>
                             ))}
                           </div>
                         )}
 
-                        {showEnvs === app.uuid && (
-                          <EnvVarEditor appUuid={app.uuid} />
-                        )}
+                        {showEnvs === app.uuid && <EnvVarEditor appUuid={app.uuid} />}
                       </div>
                     );
                   })}
                 </div>
               )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

@@ -28,7 +28,6 @@ export default function ScanReportViewer({ scan }: Props) {
           const data = await res.json();
           setNucleiEntries(Array.isArray(data) ? data : []);
         } else {
-          // ZAP — try HTML report
           setHtmlUrl(api.getScanReportUrl(scan.id, 'html'));
         }
       } catch { /* ignore */ }
@@ -38,53 +37,53 @@ export default function ScanReportViewer({ scan }: Props) {
   }, [scan.id, scan.tool]);
 
   if (loading) {
-    return <div className="flex justify-center py-12"><div className="animate-spin w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full" /></div>;
+    return <div className="flex justify-center py-12"><div className="animate-spin w-5 h-5 border-2 border-accent border-t-transparent" /></div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-3">
       {/* Header */}
-      <div className="bg-white rounded-xl border p-6">
-        <h2 className="text-xl font-bold mb-2">Rapport — {scan.tool}</h2>
-        <div className="text-sm text-gray-600 space-y-1">
-          <p><span className="font-medium">Cible :</span> {scan.targetUrl}</p>
-          <p><span className="font-medium">Date :</span> {new Date(scan.createdAt).toLocaleString('fr-FR')}</p>
+      <div className="panel p-3">
+        <h2 className="text-sm font-semibold text-txt-primary mb-2">Rapport — {scan.tool}</h2>
+        <div className="text-2xs text-txt-secondary space-y-0.5 font-mono">
+          <p>cible: {scan.targetUrl}</p>
+          <p>date: {new Date(scan.createdAt).toLocaleString('fr-FR')}</p>
           {scan.startedAt && scan.finishedAt && (
-            <p><span className="font-medium">Duree :</span> {formatDuration(scan.startedAt, scan.finishedAt)}</p>
+            <p>duree: {formatDuration(scan.startedAt, scan.finishedAt)}</p>
           )}
         </div>
         {scan.findingsSummary && (
-          <div className="mt-4 flex gap-4">
-            <SeverityCard label="Critical" count={scan.findingsSummary.critical} color="bg-purple-600" />
-            <SeverityCard label="High" count={scan.findingsSummary.high} color="bg-red-600" />
-            <SeverityCard label="Medium" count={scan.findingsSummary.medium} color="bg-orange-500" />
-            <SeverityCard label="Low" count={scan.findingsSummary.low} color="bg-yellow-500" />
-            <SeverityCard label="Info" count={scan.findingsSummary.info} color="bg-blue-500" />
+          <div className="mt-3 flex gap-2">
+            <SeverityCard label="CRIT" count={scan.findingsSummary.critical} color="bg-status-critical" />
+            <SeverityCard label="HIGH" count={scan.findingsSummary.high} color="bg-status-error" />
+            <SeverityCard label="MED" count={scan.findingsSummary.medium} color="bg-orange-500" />
+            <SeverityCard label="LOW" count={scan.findingsSummary.low} color="bg-status-warn" />
+            <SeverityCard label="INFO" count={scan.findingsSummary.info} color="bg-status-info" />
           </div>
         )}
       </div>
 
       {/* Nuclei findings table */}
       {scan.tool === 'nuclei' && nucleiEntries.length > 0 && (
-        <div className="bg-white rounded-xl border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
+        <div className="panel overflow-hidden">
+          <table className="w-full">
+            <thead>
               <tr>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Severite</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Nom</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">URL</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">Tags</th>
+                <th className="table-header">Sev</th>
+                <th className="table-header">Nom</th>
+                <th className="table-header">URL</th>
+                <th className="table-header">Tags</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody>
               {nucleiEntries.map((entry, i) => (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="px-4 py-3">
+                <tr key={i} className="hover:bg-surface-2/50 transition-colors">
+                  <td className="table-cell">
                     <SeverityLabel severity={entry.info?.severity || 'info'} />
                   </td>
-                  <td className="px-4 py-3 font-medium">{entry.info?.name || '-'}</td>
-                  <td className="px-4 py-3 font-mono text-xs truncate max-w-[300px]">{entry['matched-at'] || entry.host || '-'}</td>
-                  <td className="px-4 py-3 text-xs text-gray-500">{entry.info?.tags?.join(', ') || '-'}</td>
+                  <td className="table-cell font-medium text-txt-primary">{entry.info?.name || '-'}</td>
+                  <td className="table-cell font-mono text-2xs text-txt-muted truncate max-w-[250px]">{entry['matched-at'] || entry.host || '-'}</td>
+                  <td className="table-cell text-2xs text-txt-muted">{entry.info?.tags?.join(', ') || '-'}</td>
                 </tr>
               ))}
             </tbody>
@@ -93,12 +92,12 @@ export default function ScanReportViewer({ scan }: Props) {
       )}
 
       {scan.tool === 'nuclei' && nucleiEntries.length === 0 && (
-        <div className="bg-white rounded-xl border p-6 text-center text-gray-500">Aucun finding detecte</div>
+        <div className="panel p-6 text-center text-txt-muted text-xs">Aucun finding</div>
       )}
 
       {/* ZAP HTML report */}
       {htmlUrl && (
-        <div className="bg-white rounded-xl border overflow-hidden">
+        <div className="panel overflow-hidden">
           <iframe
             src={htmlUrl}
             title="Rapport ZAP"
@@ -114,24 +113,24 @@ export default function ScanReportViewer({ scan }: Props) {
 
 function SeverityCard({ label, count, color }: { label: string; count: number; color: string }) {
   return (
-    <div className={`${color} text-white rounded-lg px-4 py-2 text-center min-w-[80px]`}>
-      <div className="text-2xl font-bold">{count}</div>
-      <div className="text-xs opacity-80">{label}</div>
+    <div className={`${color} text-white px-3 py-1.5 text-center min-w-[60px]`}>
+      <div className="text-lg font-bold font-mono">{count}</div>
+      <div className="text-2xs opacity-80">{label}</div>
     </div>
   );
 }
 
 function SeverityLabel({ severity }: { severity: string }) {
-  const colors: Record<string, string> = {
-    critical: 'bg-purple-100 text-purple-800',
-    high: 'bg-red-100 text-red-800',
-    medium: 'bg-orange-100 text-orange-800',
-    low: 'bg-yellow-100 text-yellow-800',
-    info: 'bg-blue-100 text-blue-800',
+  const styles: Record<string, string> = {
+    critical: 'bg-purple-900/40 text-status-critical',
+    high: 'bg-red-900/30 text-status-error',
+    medium: 'bg-orange-900/30 text-orange-400',
+    low: 'bg-yellow-900/30 text-status-warn',
+    info: 'bg-blue-900/30 text-status-info',
   };
   return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium ${colors[severity.toLowerCase()] || 'bg-gray-100'}`}>
-      {severity}
+    <span className={`px-1.5 py-0.5 text-2xs font-medium font-mono ${styles[severity.toLowerCase()] || 'bg-surface-3 text-txt-muted'}`}>
+      {severity.toUpperCase()}
     </span>
   );
 }
@@ -141,5 +140,5 @@ function formatDuration(start: string, end: string): string {
   const s = Math.floor(ms / 1000);
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
-  return `${m}min ${s % 60}s`;
+  return `${m}m${s % 60}s`;
 }

@@ -3,51 +3,42 @@ import MonitorBadge from '../components/MonitorBadge';
 
 export default function Monitoring() {
   const { monitors, connected } = useMonitors(15000);
-
   const monitorList = Array.from(monitors.values());
 
   return (
     <div>
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-gray-900">Monitoring</h1>
-        <p className="text-gray-500 mt-1">
-          {connected ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-green-500" />
-              Connecte a Uptime Kuma
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-red-500" />
-              Uptime Kuma non connecte
-            </span>
-          )}
-        </p>
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          <h1 className="text-sm font-semibold text-txt-primary">Monitoring</h1>
+          <span className="inline-flex items-center gap-1.5 text-2xs">
+            <span className={`w-1.5 h-1.5 ${connected ? 'bg-status-ok' : 'bg-status-error'}`} />
+            <span className="text-txt-muted">{connected ? 'Uptime Kuma connecte' : 'Deconnecte'}</span>
+          </span>
+        </div>
       </div>
 
       {monitorList.length === 0 ? (
-        <div className="text-center py-20 text-gray-400">
-          <p className="text-lg">Aucun monitor configure</p>
-          <p className="text-sm mt-2">Les monitors sont crees automatiquement lors de la creation d'un projet</p>
+        <div className="panel text-center py-12 text-txt-muted text-xs">
+          Aucun monitor configure
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="panel overflow-hidden">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead>
               <tr>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">Monitor</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">Status</th>
-                <th className="text-left text-xs font-medium text-gray-500 uppercase px-6 py-3">Ping</th>
+                <th className="table-header">Monitor</th>
+                <th className="table-header">Status</th>
+                <th className="table-header">Ping</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
+            <tbody>
               {monitorList.map(m => (
-                <tr key={m.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 text-sm font-medium text-gray-900">{m.name}</td>
-                  <td className="px-6 py-4">
+                <tr key={m.id} className="hover:bg-surface-2/50 transition-colors">
+                  <td className="table-cell font-medium text-txt-primary">{m.name}</td>
+                  <td className="table-cell">
                     <MonitorBadge status={m.status} showPing={false} />
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">
+                  <td className="table-cell font-mono text-txt-secondary">
                     {m.ping != null ? `${m.ping}ms` : '—'}
                   </td>
                 </tr>

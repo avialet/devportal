@@ -12,71 +12,79 @@ export default function Layout({ user, onLogout, children }: Props) {
   const location = useLocation();
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
 
-  const navLink = (to: string, label: string, icon: string, disabled = false) => {
+  const navItems = [
+    { to: '/', label: 'Projets', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z' },
+    { to: '/monitoring', label: 'Monitoring', icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
+  ];
+  const adminItems = [
+    { to: '/security', label: 'Securite', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+    { to: '/users', label: 'Utilisateurs', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
+  ];
+
+  const NavLink = ({ to, label, icon }: { to: string; label: string; icon: string }) => {
     const active = isActive(to);
-    if (disabled) {
-      return (
-        <span className="flex items-center gap-3 px-3 py-2 rounded-lg text-gray-500 text-sm cursor-not-allowed">
-          <span dangerouslySetInnerHTML={{ __html: icon }} />
-          {label}
-        </span>
-      );
-    }
     return (
       <Link
         to={to}
-        className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition ${
-          active ? 'bg-gray-800 text-white' : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+        className={`flex items-center gap-2 px-2 py-1.5 text-xs font-medium transition-colors ${
+          active
+            ? 'bg-accent/15 text-accent border-l-2 border-accent -ml-px'
+            : 'text-txt-secondary hover:text-txt-primary hover:bg-surface-3 border-l-2 border-transparent -ml-px'
         }`}
       >
-        <span dangerouslySetInnerHTML={{ __html: icon }} />
+        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icon} />
+        </svg>
         {label}
       </Link>
     );
   };
 
-  const homeIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>';
-  const monitorIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>';
-  const usersIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>';
-  const securityIcon = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>';
-
   return (
-    <div className="min-h-screen flex">
+    <div className="h-screen flex overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 text-white flex flex-col">
-        <div className="p-6 border-b border-gray-800">
-          <Link to="/" className="flex items-center gap-3">
-            <img src="/plannet-logo.svg" alt="plan.net" className="w-10 h-10 rounded-lg" />
+      <aside className="w-48 bg-surface-1 border-r border-border flex flex-col shrink-0">
+        {/* Logo */}
+        <div className="px-3 py-3 border-b border-border">
+          <Link to="/" className="flex items-center gap-2">
+            <img src="/plannet-logo.svg" alt="plan.net" className="w-6 h-6" />
             <div>
-              <h1 className="text-xl font-bold">DevPortal</h1>
-              <p className="text-gray-400 text-xs">plan.net &middot; PaaS interne</p>
+              <span className="text-xs font-semibold text-txt-primary">DevPortal</span>
+              <span className="text-2xs text-txt-muted ml-1">ops</span>
             </div>
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
-          {navLink('/', 'Projets', homeIcon)}
-          {navLink('/monitoring', 'Monitoring', monitorIcon)}
-          {user.role === 'admin' && navLink('/security', 'Securite', securityIcon)}
-          {user.role === 'admin' && navLink('/users', 'Utilisateurs', usersIcon)}
+        {/* Nav */}
+        <nav className="flex-1 py-2 space-y-0.5 px-1">
+          <div className="px-2 py-1 text-2xs font-medium text-txt-muted uppercase tracking-wider">Navigation</div>
+          {navItems.map(item => <NavLink key={item.to} {...item} />)}
+
+          {user.role === 'admin' && (
+            <>
+              <div className="px-2 py-1 mt-3 text-2xs font-medium text-txt-muted uppercase tracking-wider">Admin</div>
+              {adminItems.map(item => <NavLink key={item.to} {...item} />)}
+            </>
+          )}
         </nav>
 
-        <div className="p-4 border-t border-gray-800">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-sm font-bold">
+        {/* User */}
+        <div className="px-2 py-2 border-t border-border">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 bg-accent/20 text-accent flex items-center justify-center text-2xs font-bold shrink-0">
               {user.displayName.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user.displayName}</p>
-              <p className="text-xs text-gray-400 truncate">{user.email}</p>
+              <p className="text-2xs font-medium text-txt-primary truncate">{user.displayName}</p>
+              <p className="text-2xs text-txt-muted truncate">{user.role}</p>
             </div>
             <button
               onClick={onLogout}
-              className="text-gray-400 hover:text-white transition"
+              className="text-txt-muted hover:text-status-error transition-colors p-0.5"
               title="Deconnexion"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </button>
           </div>
@@ -84,7 +92,7 @@ export default function Layout({ user, onLogout, children }: Props) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-8 overflow-auto">
+      <main className="flex-1 overflow-auto p-4">
         {children}
       </main>
     </div>

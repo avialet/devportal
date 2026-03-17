@@ -7,17 +7,17 @@ export default function Login({ onLoginOidc, oidcAvailable }: Props) {
   const error = new URLSearchParams(window.location.search).get('error');
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-lg p-8">
-          <div className="text-center mb-8">
-            <img src="/plannet-logo.svg" alt="plan.net" className="w-16 h-16 mx-auto mb-4" />
-            <h1 className="text-3xl font-bold text-gray-900">DevPortal</h1>
-            <p className="text-gray-500 mt-2">Plateforme de deploiement interne</p>
+    <div className="min-h-screen flex items-center justify-center bg-surface-0">
+      <div className="w-full max-w-sm">
+        <div className="panel p-6">
+          <div className="text-center mb-6">
+            <img src="/plannet-logo.svg" alt="plan.net" className="w-10 h-10 mx-auto mb-3" />
+            <h1 className="text-lg font-semibold text-txt-primary">DevPortal</h1>
+            <p className="text-2xs text-txt-muted mt-1 uppercase tracking-wider">Operations Platform</p>
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-700 px-4 py-3 rounded-lg text-sm mb-6">
+            <div className="bg-red-900/20 border border-status-error/30 text-status-error px-3 py-2 text-xs mb-4">
               Erreur d'authentification. Veuillez reessayer.
             </div>
           )}
@@ -25,15 +25,15 @@ export default function Login({ onLoginOidc, oidcAvailable }: Props) {
           {oidcAvailable ? (
             <button
               onClick={onLoginOidc}
-              className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition flex items-center justify-center gap-3"
+              className="w-full btn-primary py-2.5 flex items-center justify-center gap-2"
             >
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
               </svg>
               Se connecter avec Authentik
             </button>
           ) : (
-            <p className="text-center text-gray-500 text-sm">
+            <p className="text-center text-txt-muted text-xs">
               Authentification SSO non configuree.
             </p>
           )}
