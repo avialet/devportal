@@ -54,6 +54,23 @@ CREATE TABLE IF NOT EXISTS security_scans (
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS project_scan_config (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER REFERENCES portal_projects(id),
+  environment TEXT NOT NULL,
+  tool TEXT NOT NULL DEFAULT 'nuclei',
+  enabled BOOLEAN NOT NULL DEFAULT 0,
+  UNIQUE(project_id, environment)
+);
+
+CREATE TABLE IF NOT EXISTS project_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER REFERENCES portal_projects(id),
+  user_id INTEGER REFERENCES users(id),
+  role TEXT NOT NULL DEFAULT 'viewer',
+  UNIQUE(project_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS sessions (
   sid TEXT PRIMARY KEY,
   sess TEXT NOT NULL,

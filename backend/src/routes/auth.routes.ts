@@ -158,7 +158,16 @@ router.post('/logout', (req: AuthRequest, res: Response): void => {
   });
 });
 
-// Auth info
+/**
+ * @openapi
+ * /auth/me:
+ *   get:
+ *     tags: [Auth]
+ *     summary: Get current user info
+ *     responses:
+ *       200:
+ *         description: Current authenticated user
+ */
 router.get('/me', authMiddleware, (req: AuthRequest, res: Response): void => {
   res.json({ user: req.user });
 });

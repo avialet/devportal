@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
+import swaggerUi from 'swagger-ui-express';
+import { swaggerSpec } from './swagger.js';
 import { config } from './config.js';
 import { initDatabase } from './db/database.js';
 import { SqliteSessionStore } from './db/session-store.js';
@@ -29,28 +31,6 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// API routes
-app.use('/api/auth', authRoutes);
-app.use('/api/projects', projectRoutes);
-app.use('/api/apps', appRoutes);
-app.use('/api/monitors', monitorRoutes);
-app.use('/api/security', securityRoutes);
-app.use('/api/stats', statsRoutes);
-app.use('/api/activity', activityRoutes);
-
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', version: '1.0.0' });
-});
-
-// Serve frontend in production
-const frontendDist = join(__dirname, '../../frontend/dist');
-if (existsSync(frontendDist)) {
-  app.use(express.static(frontendDist));
-  app.get('*', (_req, res) => {
-    res.sendFile(join(frontendDist, 'index.html'));
-  });
-}
-
 async function main() {
   await initDatabase();
 
@@ -67,6 +47,32 @@ async function main() {
       sameSite: 'lax',
     },
   }));
+
+  // Swagger API docs
+  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customCss: '.swagger-ui .topbar { display: none }' }));
+  app.get('/api/docs.json', (_req, res) => res.json(swaggerSpec));
+
+  // API routes (must be after session middleware)
+  app.use('/api/auth', authRoutes);
+  app.use('/api/projects', projectRoutes);
+  app.use('/api/apps', appRoutes);
+  app.use('/api/monitors', monitorRoutes);
+  app.use('/api/security', securityRoutes);
+  app.use('/api/stats', statsRoutes);
+  app.use('/api/activity', activityRoutes);
+
+  app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok', version: '1.0.0' });
+  });
+
+  // Serve frontend in production
+  const frontendDist = join(__dirname, '../../frontend/dist');
+  if (existsSync(frontendDist)) {
+    app.use(express.static(frontendDist));
+    app.get('*', (_req, res) => {
+      res.sendFile(join(frontendDist, 'index.html'));
+    });
+  }
 
   await initUptimeKuma();
   app.listen(config.port, () => {

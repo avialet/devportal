@@ -28,7 +28,16 @@ const router = Router();
 
 router.use(authMiddleware);
 
-// List all projects (Coolify projects enriched with portal data)
+/**
+ * @openapi
+ * /projects:
+ *   get:
+ *     tags: [Projects]
+ *     summary: List all projects
+ *     responses:
+ *       200:
+ *         description: Array of projects with environments and apps
+ */
 router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const coolifyProjects = await coolify.listProjects();
@@ -76,7 +85,22 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
   }
 });
 
-// Get project detail with environments and apps
+/**
+ * @openapi
+ * /projects/{uuid}:
+ *   get:
+ *     tags: [Projects]
+ *     summary: Get project detail
+ *     parameters:
+ *       - name: uuid
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Project detail with environments
+ */
 router.get('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const uuid = param(req, 'uuid');
@@ -163,7 +187,182 @@ router.post('/create', async (req: AuthRequest, res: Response): Promise<void> =>
   }
 });
 
-// Delete project
+/**
+ * @openapi
+ * /projects/{uuid}/env-compare:
+ *   get:
+ *     tags: [Projects]
+ *     summary: Compare env vars across environments
+ *     parameters:
+ *       - name: uuid
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Env var comparison across environments
+ */
+router.get('/:uuid/env-compare', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uuid = param(req, 'uuid');
+    const project = await coolify.getProject(uuid);
+    const envs = project.environments ?? [];
+
+    // Fetch env vars for each environment's apps in parallel
+    const envVarsByEnv: Record<string, { key: string; value: string; is_build_time: boolean }[]> = {};
+
+    for (const env of envs) {
+      const detail = await coolify.getEnvironmentDetail(uuid, env.name);
+      const apps = detail.applications ?? [];
+      if (apps.length > 0) {
+        // Use first app in each environment
+        try {
+          const vars = await coolify.getEnvVars(apps[0].uuid);
+          envVarsByEnv[env.name] = vars.map((v: { key: string; value: string; is_build_time: boolean }) => ({ key: v.key, value: v.value, is_build_time: v.is_build_time }));
+        } catch {
+          envVarsByEnv[env.name] = [];
+        }
+      }
+    }
+
+    // Build unified comparison
+    const allKeys = new Set<string>();
+    for (const vars of Object.values(envVarsByEnv)) {
+      for (const v of vars) allKeys.add(v.key);
+    }
+
+    const envNames = Object.keys(envVarsByEnv);
+    const comparison = Array.from(allKeys).sort().map(key => {
+      const values: Record<string, string | null> = {};
+      for (const envName of envNames) {
+        const found = envVarsByEnv[envName]?.find(v => v.key === key);
+        values[envName] = found?.value ?? null;
+      }
+
+      // Check if values differ
+      const uniqueValues = new Set(Object.values(values).filter(v => v !== null));
+      const hasDiff = uniqueValues.size > 1 || Object.values(values).some(v => v === null);
+
+      return { key, values, hasDiff };
+    });
+
+    res.json({ environments: envNames, comparison });
+  } catch (err) {
+    console.error('Error comparing envs:', err);
+    res.status(502).json({ error: 'error', message: 'Erreur lors de la comparaison' });
+  }
+});
+
+// Get scan config for a project
+router.get('/:uuid/scan-config', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uuid = param(req, 'uuid');
+    const portal = queryOne<{ id: number }>('SELECT id FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+    if (!portal) {
+      res.json([]);
+      return;
+    }
+    const configs = queryAll<{ environment: string; tool: string; enabled: number }>(
+      'SELECT environment, tool, enabled FROM project_scan_config WHERE project_id = ?',
+      [portal.id]
+    );
+    res.json(configs.map(c => ({ environment: c.environment, tool: c.tool, enabled: !!c.enabled })));
+  } catch (err) {
+    console.error('Error getting scan config:', err);
+    res.status(500).json({ error: 'error', message: 'Erreur' });
+  }
+});
+
+// Update scan config for a project
+router.put('/:uuid/scan-config', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uuid = param(req, 'uuid');
+    const portal = queryOne<{ id: number }>('SELECT id FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+    if (!portal) {
+      res.status(404).json({ error: 'not_found', message: 'Projet non gere par le portal' });
+      return;
+    }
+    const { environment, tool, enabled } = req.body;
+    if (!environment) {
+      res.status(400).json({ error: 'bad_request', message: 'environment requis' });
+      return;
+    }
+    runQuery(
+      'INSERT INTO project_scan_config (project_id, environment, tool, enabled) VALUES (?, ?, ?, ?) ON CONFLICT(project_id, environment) DO UPDATE SET tool = excluded.tool, enabled = excluded.enabled',
+      [portal.id, environment, tool || 'nuclei', enabled ? 1 : 0]
+    );
+    res.json({ status: 'updated' });
+  } catch (err) {
+    console.error('Error updating scan config:', err);
+    res.status(500).json({ error: 'error', message: 'Erreur' });
+  }
+});
+
+// Get project members
+router.get('/:uuid/members', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uuid = param(req, 'uuid');
+    const portal = queryOne<{ id: number }>('SELECT id FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+    if (!portal) { res.json([]); return; }
+    const members = queryAll<{ id: number; user_id: number; role: string; display_name: string; email: string }>(
+      `SELECT pm.id, pm.user_id, pm.role, u.display_name, u.email
+       FROM project_members pm JOIN users u ON pm.user_id = u.id
+       WHERE pm.project_id = ?`,
+      [portal.id]
+    );
+    res.json(members);
+  } catch (err) {
+    console.error('Error getting members:', err);
+    res.status(500).json({ error: 'error', message: 'Erreur' });
+  }
+});
+
+// Add project member
+router.post('/:uuid/members', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uuid = param(req, 'uuid');
+    const portal = queryOne<{ id: number }>('SELECT id FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+    if (!portal) { res.status(404).json({ error: 'not_found' }); return; }
+    const { userId, role } = req.body;
+    runQuery(
+      'INSERT INTO project_members (project_id, user_id, role) VALUES (?, ?, ?) ON CONFLICT(project_id, user_id) DO UPDATE SET role = excluded.role',
+      [portal.id, userId, role || 'viewer']
+    );
+    res.json({ status: 'added' });
+  } catch (err) {
+    console.error('Error adding member:', err);
+    res.status(500).json({ error: 'error', message: 'Erreur' });
+  }
+});
+
+// Remove project member
+router.delete('/:uuid/members/:memberId', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    runQuery('DELETE FROM project_members WHERE id = ?', [parseInt(param(req, 'memberId'))]);
+    res.json({ status: 'removed' });
+  } catch (err) {
+    console.error('Error removing member:', err);
+    res.status(500).json({ error: 'error', message: 'Erreur' });
+  }
+});
+
+/**
+ * @openapi
+ * /projects/{uuid}:
+ *   delete:
+ *     tags: [Projects]
+ *     summary: Delete project from portal
+ *     parameters:
+ *       - name: uuid
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Project deleted
+ */
 router.delete('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const uuid = param(req, 'uuid');

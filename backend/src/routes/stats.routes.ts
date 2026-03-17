@@ -7,6 +7,16 @@ import { queryAll } from '../db/database.js';
 const router = Router();
 router.use(authMiddleware);
 
+/**
+ * @openapi
+ * /stats:
+ *   get:
+ *     tags: [Dashboard]
+ *     summary: Get dashboard statistics
+ *     responses:
+ *       200:
+ *         description: KPI metrics
+ */
 router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
     const projects = await coolify.listProjects();

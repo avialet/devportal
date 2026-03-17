@@ -18,22 +18,34 @@ export default function Layout({ user, onLogout, children }: Props) {
   ];
   const adminItems = [
     { to: '/security', label: 'Securite', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+    { to: '/api/docs', label: 'API Docs', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', external: true },
   ];
 
-  const NavLink = ({ to, label, icon }: { to: string; label: string; icon: string }) => {
-    const active = isActive(to);
+  const NavLink = ({ to, label, icon, external }: { to: string; label: string; icon: string; external?: boolean }) => {
+    const active = !external && isActive(to);
+    const classes = `flex items-center gap-2 px-2 py-1.5 text-xs font-medium transition-colors ${
+      active
+        ? 'bg-accent/15 text-accent border-l-2 border-accent -ml-px'
+        : 'text-txt-secondary hover:text-txt-primary hover:bg-surface-3 border-l-2 border-transparent -ml-px'
+    }`;
+    const iconEl = (
+      <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icon} />
+      </svg>
+    );
+
+    if (external) {
+      return (
+        <a href={to} target="_blank" rel="noopener noreferrer" className={classes}>
+          {iconEl}
+          {label}
+        </a>
+      );
+    }
+
     return (
-      <Link
-        to={to}
-        className={`flex items-center gap-2 px-2 py-1.5 text-xs font-medium transition-colors ${
-          active
-            ? 'bg-accent/15 text-accent border-l-2 border-accent -ml-px'
-            : 'text-txt-secondary hover:text-txt-primary hover:bg-surface-3 border-l-2 border-transparent -ml-px'
-        }`}
-      >
-        <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icon} />
-        </svg>
+      <Link to={to} className={classes}>
+        {iconEl}
         {label}
       </Link>
     );

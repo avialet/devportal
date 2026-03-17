@@ -23,7 +23,16 @@ function paramStr(v: string | string[]): string {
 // All security routes require admin
 router.use(authMiddleware, adminOnly);
 
-// POST /api/security/scans — Start a scan (SSE response)
+/**
+ * @openapi
+ * /security/scans:
+ *   post:
+ *     tags: [Security]
+ *     summary: Start a security scan (SSE response)
+ *     responses:
+ *       200:
+ *         description: SSE stream with scan progress
+ */
 router.post('/scans', (req: AuthRequest, res: Response): void => {
   const { targetUrl, tool, projectId } = req.body;
 
@@ -87,14 +96,43 @@ router.post('/scans', (req: AuthRequest, res: Response): void => {
   });
 });
 
-// GET /api/security/scans — List scans
+/**
+ * @openapi
+ * /security/scans:
+ *   get:
+ *     tags: [Security]
+ *     summary: List all security scans
+ *     parameters:
+ *       - name: projectId
+ *         in: query
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Array of scans
+ */
 router.get('/scans', (req: AuthRequest, res: Response): void => {
   const projectId = req.query.projectId ? parseInt(req.query.projectId as string) : undefined;
   const scans = listScans(projectId);
   res.json({ scans, running: getRunningCount() });
 });
 
-// GET /api/security/scans/:id — Scan detail
+/**
+ * @openapi
+ * /security/scans/{id}:
+ *   get:
+ *     tags: [Security]
+ *     summary: Get scan detail
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Scan detail
+ */
 router.get('/scans/:id', (req: AuthRequest, res: Response): void => {
   const scan = getScan(paramStr(req.params.id));
   if (!scan) {
@@ -104,7 +142,26 @@ router.get('/scans/:id', (req: AuthRequest, res: Response): void => {
   res.json(scan);
 });
 
-// GET /api/security/scans/:id/report — Raw report
+/**
+ * @openapi
+ * /security/scans/{id}/report:
+ *   get:
+ *     tags: [Security]
+ *     summary: Get raw scan report
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: format
+ *         in: query
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Scan report content
+ */
 router.get('/scans/:id/report', (req: AuthRequest, res: Response): void => {
   const reportPath = getScanReportPath(paramStr(req.params.id));
   if (!reportPath || !existsSync(reportPath)) {
@@ -128,7 +185,22 @@ router.get('/scans/:id/report', (req: AuthRequest, res: Response): void => {
   }
 });
 
-// DELETE /api/security/scans/:id — Cancel or delete scan
+/**
+ * @openapi
+ * /security/scans/{id}:
+ *   delete:
+ *     tags: [Security]
+ *     summary: Cancel or delete a scan
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Scan cancelled or deleted
+ */
 router.delete('/scans/:id', (req: AuthRequest, res: Response): void => {
   const scan = getScan(paramStr(req.params.id));
   if (!scan) {

@@ -320,6 +320,41 @@ function parseResults(tool: ScanTool, scanDir: string, _output: string): { repor
   return { reportPath, findings };
 }
 
+export function startScanBackground(
+  targetUrl: string,
+  tool: ScanTool,
+  triggeredBy: number | null,
+  projectId: number | null,
+): string {
+  if (getRunningCount() >= MAX_CONCURRENT) {
+    throw new Error('TOO_MANY_SCANS');
+  }
+
+  const scanId = crypto.randomUUID();
+  const scanDir = getScanDir(scanId);
+
+  // Create DB record
+  runQuery(
+    'INSERT INTO security_scans (id, project_id, target_url, tool, status, triggered_by) VALUES (?, ?, ?, ?, ?, ?)',
+    [scanId, projectId, targetUrl, tool, 'pending', triggeredBy],
+  );
+
+  // Run scan in background with no-op callbacks
+  setImmediate(() =>
+    runScan(
+      scanId,
+      targetUrl,
+      tool,
+      scanDir,
+      () => {},
+      () => {},
+      () => {},
+    ),
+  );
+
+  return scanId;
+}
+
 export function cancelScan(scanId: string): boolean {
   const child = activeScans.get(scanId);
   if (child) {

@@ -5,6 +5,10 @@ import { useMonitors } from '../hooks/useMonitors';
 import MonitorBadge from '../components/MonitorBadge';
 import EnvVarEditor from '../components/EnvVarEditor';
 import LogViewer from '../components/LogViewer';
+import PipelineView from '../components/PipelineView';
+import AutoScanConfig from '../components/AutoScanConfig';
+import ProjectMembers from '../components/ProjectMembers';
+import EnvCompare from '../components/EnvCompare';
 
 function statusDot(status: string): string {
   if (status === 'running') return 'bg-status-ok';
@@ -38,6 +42,7 @@ export default function ProjectDetail() {
   const [showLogs, setShowLogs] = useState<string | null>(null);
   const [showEnvs, setShowEnvs] = useState<string | null>(null);
   const [showRuntimeLogs, setShowRuntimeLogs] = useState<string | null>(null);
+  const [showEnvCompare, setShowEnvCompare] = useState(false);
 
   const loadProject = useCallback(async () => {
     if (!uuid) return;
@@ -127,7 +132,12 @@ export default function ProjectDetail() {
             <span className="text-2xs text-txt-muted font-mono">{project.githubUrl.replace('https://github.com/', '')}</span>
           )}
         </div>
-        <button onClick={handleDeleteProject} className="btn-danger">Supprimer</button>
+        <div className="flex items-center gap-1">
+          <button onClick={() => setShowEnvCompare(!showEnvCompare)} className="btn-secondary">
+            {showEnvCompare ? 'Masquer Comparaison' : 'Comparer Envs'}
+          </button>
+          <button onClick={handleDeleteProject} className="btn-danger">Supprimer</button>
+        </div>
       </div>
 
       <div className="space-y-2">
@@ -197,7 +207,7 @@ export default function ProjectDetail() {
 
                         {isShowingLogs && appDeployments.length > 0 && (
                           <div className="mt-2 bg-surface-0 border border-border p-2 max-h-40 overflow-auto font-mono text-2xs">
-                            {appDeployments.slice(0, 5).map(dep => (
+                            {appDeployments.slice(0, 5).map((dep, idx) => (
                               <div key={dep.uuid} className="flex items-center gap-2 py-0.5">
                                 <span className={`w-1.5 h-1.5 ${
                                   dep.status === 'finished' ? 'bg-status-ok' :
@@ -206,8 +216,25 @@ export default function ProjectDetail() {
                                 <span className="text-txt-muted">{dep.status}</span>
                                 <span className="text-txt-muted">{new Date(dep.created_at).toLocaleString('fr-FR')}</span>
                                 {dep.commit && <span className="text-txt-muted">{dep.commit.slice(0, 7)}</span>}
+                                {dep.status === 'finished' && dep.commit && idx > 0 && (
+                                  <button
+                                    onClick={async () => {
+                                      if (!window.confirm(`Rollback vers le commit ${dep.commit?.slice(0, 7)} ?`)) return;
+                                      try {
+                                        await api.rollbackApp(app.uuid, dep.uuid);
+                                        setTimeout(loadProject, 2000);
+                                      } catch { /* ignore */ }
+                                    }}
+                                    className="ml-auto text-2xs text-accent hover:text-accent-hover"
+                                  >
+                                    Rollback
+                                  </button>
+                                )}
                               </div>
                             ))}
+                            {appDeployments.length > 0 && (
+                              <PipelineView deploymentUuid={appDeployments[0].uuid} />
+                            )}
                           </div>
                         )}
 
@@ -223,6 +250,22 @@ export default function ProjectDetail() {
           );
         })}
       </div>
+
+      {showEnvCompare && uuid && (
+        <EnvCompare projectUuid={uuid} />
+      )}
+
+      {project.portalManaged && uuid && (
+        <div className="mt-4">
+          <AutoScanConfig projectUuid={uuid} />
+        </div>
+      )}
+
+      {project.portalManaged && uuid && (
+        <div className="mt-2">
+          <ProjectMembers projectUuid={uuid} />
+        </div>
+      )}
     </div>
   );
 }

@@ -108,6 +108,18 @@ export const api = {
   getDeployment(deploymentUuid: string) {
     return request<Deployment>(`/apps/deployments/${deploymentUuid}`);
   },
+  rollbackApp(appUuid: string, deploymentUuid: string) {
+    return request<{ status: string; deployment_uuid: string; commit: string }>(`/apps/${appUuid}/rollback`, {
+      method: 'POST',
+      body: JSON.stringify({ deploymentUuid }),
+    });
+  },
+  unpinApp(appUuid: string) {
+    return request<{ status: string }>(`/apps/${appUuid}/unpin`, { method: 'POST' });
+  },
+  getPipeline(deploymentUuid: string) {
+    return request<{ deploymentUuid: string; status: string; commit: string | null; stages: { name: string; status: string }[] }>(`/apps/deployments/${deploymentUuid}/pipeline`);
+  },
   getAppLogs(appUuid: string, since?: number) {
     const qs = since ? `?since=${since}` : '';
     return request<{ logs: string }>(`/apps/${appUuid}/logs${qs}`);
@@ -119,6 +131,11 @@ export const api = {
   },
   getActivity() {
     return request<ActivityItem[]>('/activity');
+  },
+
+  // Env comparison
+  getEnvCompare(projectUuid: string) {
+    return request<EnvCompareResponse>(`/projects/${projectUuid}/env-compare`);
   },
 
   // Projects (delete)
@@ -184,6 +201,11 @@ export const api = {
     return `${BASE}/security/scans/${id}/report${qs}`;
   },
 };
+
+export interface EnvCompareResponse {
+  environments: string[];
+  comparison: { key: string; values: Record<string, string | null>; hasDiff: boolean }[];
+}
 
 export interface DashboardStats {
   projects: number;

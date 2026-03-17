@@ -6,7 +6,16 @@ const router = Router();
 
 router.use(authMiddleware);
 
-// Get all monitor statuses
+/**
+ * @openapi
+ * /monitors:
+ *   get:
+ *     tags: [Monitoring]
+ *     summary: Get all monitor statuses
+ *     responses:
+ *       200:
+ *         description: Monitor statuses from Uptime Kuma
+ */
 router.get('/', (_req: AuthRequest, res: Response): void => {
   res.json({
     connected: kuma.isConnected(),

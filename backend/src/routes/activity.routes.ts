@@ -5,7 +5,16 @@ import { queryAll } from '../db/database.js';
 const router = Router();
 router.use(authMiddleware);
 
-// Get recent activity
+/**
+ * @openapi
+ * /activity:
+ *   get:
+ *     tags: [Dashboard]
+ *     summary: Get recent activity log
+ *     responses:
+ *       200:
+ *         description: Array of recent activities
+ */
 router.get('/', (_req: AuthRequest, res: Response): void => {
   const activities = queryAll<{
     id: number;
