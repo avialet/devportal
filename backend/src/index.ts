@@ -1,8 +1,6 @@
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
-import swaggerUi from 'swagger-ui-express';
-import { swaggerSpec } from './swagger.js';
 import { config } from './config.js';
 import { initDatabase } from './db/database.js';
 import { SqliteSessionStore } from './db/session-store.js';
@@ -51,9 +49,9 @@ async function main() {
     },
   }));
 
-  // Swagger API docs
-  app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, { customCss: '.swagger-ui .topbar { display: none }' }));
-  app.get('/api/docs.json', (_req, res) => res.json(swaggerSpec));
+  // API docs disabled
+  app.use('/api/docs', (_req, res) => res.status(404).json({ error: 'not_found' }));
+  app.get('/api/docs.json', (_req, res) => res.status(404).json({ error: 'not_found' }));
 
   // API routes (must be after session middleware)
   app.use('/api/auth', authRoutes);
