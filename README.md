@@ -6,12 +6,20 @@ Portail developpeur interne pour gerer les projets deployes sur Coolify (PaaS) a
 
 ```
 Developpeur (navigateur)
-        | HTTPS
+        |
         v
+   Authentik ──── authentik.51.254.131.12.nip.io
+   (Identity Provider - OAuth2/OIDC)
+      |              |
+      v              v
+  DevPortal       Coolify
+  (OAuth2)       (OAuth2 natif)
+
   DevPortal React --- portal.51.254.131.12.nip.io
-        | API calls
+        | API calls (session cookie)
         v
   Backend Node.js (Express)
+      |-- Authentik OIDC (openid-client v6)
       |-- Coolify API (http://coolify:8080/api/v1)
       |-- Uptime Kuma (http://uptime-kuma:3001 via Socket.IO)
       |-- SQLite (donnees locales)
@@ -24,7 +32,7 @@ Developpeur (navigateur)
 | Frontend | React + Vite + TypeScript + Tailwind | Stack moderne, rapide a dev |
 | Backend | Express + TypeScript | Simple, proxy API suffisant |
 | BDD | SQLite (sql.js WASM) | Zero ops, donnees minimales |
-| Auth | JWT propre au portail | Coolify n'a pas d'auth user via API |
+| Auth | Authentik SSO (OIDC) + session cookie | Auth centralisee, memes credentials DevPortal + Coolify |
 | Monitoring | Uptime Kuma via Socket.IO | Pas de REST API, Socket.IO natif |
 | Deploiement | Dockerfile multi-stage sur Coolify | Self-hosted, meme workflow que les autres projets |
 | Reseau | Docker network `coolify` | Communication container-to-container |
@@ -44,10 +52,10 @@ portal/
 ├── backend/src/
 │   ├── index.ts              # Express entry point
 │   ├── config.ts             # Lecture env vars
-│   ├── middleware/auth.ts     # JWT + adminOnly guard
+│   ├── middleware/auth.ts     # Hybrid auth: session cookie (OIDC) + JWT fallback
 │   ├── db/database.ts        # SQLite (sql.js WASM), schema inline
 │   ├── routes/
-│   │   ├── auth.routes.ts    # POST /login, GET /me
+│   │   ├── auth.routes.ts    # OIDC login/callback/logout + legacy POST /login
 │   │   ├── project.routes.ts # CRUD projets (via Coolify API)
 │   │   ├── app.routes.ts     # Deploy/stop/restart, logs, env vars
 │   │   ├── monitor.routes.ts # Statuts Uptime Kuma
@@ -55,13 +63,14 @@ portal/
 │   └── services/
 │       ├── coolify.service.ts         # Client HTTP Coolify API
 │       ├── uptimekuma.service.ts      # Client Socket.IO Uptime Kuma
-│       └── project-wizard.service.ts  # Orchestration creation projet
+│       ├── project-wizard.service.ts  # Orchestration creation projet
+│       └── oidc.service.ts            # OIDC discovery, login URL, callback, group→role mapping
 └── frontend/src/
     ├── main.tsx
     ├── App.tsx               # Routes + auth guard
-    ├── api/client.ts         # Fetch wrapper avec JWT
+    ├── api/client.ts         # Fetch wrapper avec session cookie
     ├── hooks/
-    │   ├── useAuth.ts        # Gestion token JWT
+    │   ├── useAuth.ts        # Gestion session OIDC (cookie-based)
     │   └── useMonitors.ts    # Polling statuts monitoring
     ├── pages/
     │   ├── Login.tsx
@@ -107,6 +116,50 @@ La progression est streamee en temps reel via **Server-Sent Events (SSE)**.
 | `UPTIME_KUMA_USERNAME` | User Uptime Kuma | - |
 | `UPTIME_KUMA_PASSWORD` | Password Uptime Kuma | - |
 | `DATA_DIR` | Repertoire donnees SQLite | `/app/data` |
+| `OIDC_ISSUER` | URL publique du provider OIDC | - |
+| `OIDC_ISSUER_INTERNAL` | URL interne (container-to-container) | - |
+| `OIDC_CLIENT_ID` | Client ID OAuth2 (Authentik) | - |
+| `OIDC_CLIENT_SECRET` | Client Secret OAuth2 | - |
+| `OIDC_REDIRECT_URI` | Callback URL apres login | - |
+| `SESSION_SECRET` | Secret pour les cookies de session | requis en prod |
+| `PORTAL_URL` | URL publique du portail (pour redirects) | `http://localhost:5173` |
+
+## Authentification centralisee (Authentik SSO)
+
+L'authentification est centralisee via **Authentik** (Identity Provider OAuth2/OIDC), deploye sur Coolify.
+
+- **URL Authentik** : `https://authentik.51.254.131.12.nip.io`
+- **Admin Authentik** : `akadmin`
+- Un seul login pour DevPortal et Coolify
+
+### Gestion des utilisateurs
+
+Les utilisateurs se gerent dans **Authentik Admin > Directory > Users**. Les groupes Authentik determinent les roles :
+
+| Groupe Authentik | Role DevPortal |
+|-----------------|----------------|
+| `portal-admins` | admin |
+| `portal-developers` | developer |
+
+### Flow d'authentification
+
+1. Utilisateur clique "Se connecter avec Authentik"
+2. Redirect vers Authentik (OIDC authorization code flow)
+3. Login sur Authentik
+4. Redirect callback vers DevPortal avec code
+5. Backend echange le code pour un ID token + access token
+6. Extraction des claims (sub, email, name, groups)
+7. Mapping groupes → role, creation/mise a jour user en DB
+8. Session cookie posee, redirect vers le dashboard
+
+### Decisions techniques
+
+- **openid-client v6** : client OIDC moderne base sur `oauth4webapi`
+- **express-session** avec MemoryStore (suffisant pour un seul container)
+- **allowInsecureRequests** pour le discovery interne HTTP (container-to-container)
+- **trust proxy** active pour les cookies Secure derriere Traefik
+- **session.save()** force avant redirect pour garantir la persistence du state
+- **Auth hybride** : session cookie (OIDC) en priorite, JWT Bearer en fallback (transition)
 
 ## Deploiement sur Coolify
 
