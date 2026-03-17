@@ -31,4 +31,8 @@ export const config = {
   portalUrl: env('PORTAL_URL', 'http://localhost:5173'),
   // Security scanner
   reportsDir: env('REPORTS_DIR', ''),
+  // Host path of DATA_DIR for Docker-in-Docker volume mounts
+  // When running inside a container, Docker resolves -v paths from the host, not the container.
+  // Set to the host-side path of DATA_DIR (e.g. /var/lib/docker/volumes/devportal-data/_data)
+  dockerHostDataDir: env('DOCKER_HOST_DATA_DIR', ''),
 } as const;

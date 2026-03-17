@@ -191,14 +191,31 @@ function runScan(
   });
 }
 
+/**
+ * Translate a container-internal scanDir path to the host-side path.
+ * When running Docker-in-Docker (container spawning sibling containers),
+ * volume mounts (-v) are resolved from the HOST, not the container.
+ * DOCKER_HOST_DATA_DIR maps the container's DATA_DIR to its host equivalent.
+ */
+function toHostPath(scanDir: string): string {
+  const hostDataDir = config.dockerHostDataDir;
+  if (!hostDataDir) return scanDir; // dev mode: not in container
+  const dataDir = config.dataDir;
+  if (scanDir.startsWith(dataDir)) {
+    return hostDataDir + scanDir.slice(dataDir.length);
+  }
+  return scanDir;
+}
+
 function buildDockerArgs(tool: ScanTool, targetUrl: string, scanDir: string): string[] {
   const base = ['run', '--rm', '--network', 'coolify'];
+  const hostScanDir = toHostPath(scanDir);
 
   switch (tool) {
     case 'nuclei':
       return [
         ...base,
-        '-v', `${scanDir}:/output`,
+        '-v', `${hostScanDir}:/output`,
         'projectdiscovery/nuclei:latest',
         '-u', targetUrl,
         '-jsonl', '-o', '/output/report.jsonl',
@@ -207,7 +224,7 @@ function buildDockerArgs(tool: ScanTool, targetUrl: string, scanDir: string): st
     case 'zap-baseline':
       return [
         ...base,
-        '-v', `${scanDir}:/zap/wrk:rw`,
+        '-v', `${hostScanDir}:/zap/wrk:rw`,
         'zaproxy/zap-stable',
         'zap-baseline.py',
         '-t', targetUrl,
@@ -217,7 +234,7 @@ function buildDockerArgs(tool: ScanTool, targetUrl: string, scanDir: string): st
     case 'zap-full':
       return [
         ...base,
-        '-v', `${scanDir}:/zap/wrk:rw`,
+        '-v', `${hostScanDir}:/zap/wrk:rw`,
         'zaproxy/zap-stable',
         'zap-full-scan.py',
         '-t', targetUrl,
