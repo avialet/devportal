@@ -9,21 +9,21 @@ export default {
       },
       colors: {
         surface: {
-          0: '#0a0a0f',
-          1: '#111118',
-          2: '#1a1a24',
-          3: '#23232f',
-          4: '#2d2d3a',
+          0: 'var(--surface-0)',
+          1: 'var(--surface-1)',
+          2: 'var(--surface-2)',
+          3: 'var(--surface-3)',
+          4: 'var(--surface-4)',
         },
         border: {
-          DEFAULT: '#2d2d3a',
-          hover: '#3d3d4a',
-          active: '#5a5a6e',
+          DEFAULT: 'var(--border)',
+          hover: 'var(--border-hover)',
+          active: 'var(--border-active)',
         },
         txt: {
-          primary: '#e8e8ed',
-          secondary: '#9898a8',
-          muted: '#6a6a7a',
+          primary: 'var(--txt-primary)',
+          secondary: 'var(--txt-secondary)',
+          muted: 'var(--txt-muted)',
         },
         accent: {
           DEFAULT: '#3b82f6',

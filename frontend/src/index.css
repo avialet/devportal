@@ -4,6 +4,40 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Dark theme (default) */
+:root, .dark {
+  --surface-0: #0a0a0f;
+  --surface-1: #111118;
+  --surface-2: #1a1a24;
+  --surface-3: #23232f;
+  --surface-4: #2d2d3a;
+  --border: #2d2d3a;
+  --border-hover: #3d3d4a;
+  --border-active: #5a5a6e;
+  --txt-primary: #e8e8ed;
+  --txt-secondary: #9898a8;
+  --txt-muted: #6a6a7a;
+  --danger-bg: rgba(127, 29, 29, 0.3);
+  --danger-bg-hover: rgba(127, 29, 29, 0.5);
+}
+
+/* Light theme */
+.light {
+  --surface-0: #f5f7fa;
+  --surface-1: #ffffff;
+  --surface-2: #f0f2f5;
+  --surface-3: #e4e7ec;
+  --surface-4: #d0d5dd;
+  --border: #d0d5dd;
+  --border-hover: #b0b8c4;
+  --border-active: #8896a7;
+  --txt-primary: #1a1a2e;
+  --txt-secondary: #4a5568;
+  --txt-muted: #8896a7;
+  --danger-bg: rgba(254, 202, 202, 0.5);
+  --danger-bg-hover: rgba(254, 202, 202, 0.8);
+}
+
 @layer base {
   body {
     @apply bg-surface-0 text-txt-primary font-sans antialiased;
@@ -38,7 +72,11 @@
     @apply bg-surface-3 text-txt-secondary px-3 py-1.5 text-xs font-medium hover:bg-surface-4 hover:text-txt-primary transition-colors;
   }
   .btn-danger {
-    @apply bg-red-900/30 text-status-error px-3 py-1.5 text-xs font-medium hover:bg-red-900/50 transition-colors;
+    @apply text-status-error px-3 py-1.5 text-xs font-medium transition-colors;
+    background-color: var(--danger-bg, rgba(127, 29, 29, 0.3));
+  }
+  .btn-danger:hover {
+    background-color: var(--danger-bg-hover, rgba(127, 29, 29, 0.5));
   }
   .input-field {
     @apply bg-surface-2 border border-border text-txt-primary px-2.5 py-1.5 text-xs font-mono placeholder-txt-muted focus:border-accent focus:outline-none;

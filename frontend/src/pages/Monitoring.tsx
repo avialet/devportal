@@ -25,7 +25,7 @@ export default function Monitoring() {
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-3 gap-3">
         <div className="panel px-3 py-2">
           <div className="text-2xs text-txt-muted uppercase tracking-wider">Total</div>
           <div className="text-lg font-semibold text-txt-primary mt-0.5">{total}</div>

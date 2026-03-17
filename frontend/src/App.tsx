@@ -6,6 +6,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import NewProject from './pages/NewProject';
 import Monitoring from './pages/Monitoring';
 import Security from './pages/Security';
+import Settings from './pages/Settings';
 import Layout from './components/Layout';
 
 export default function App() {
@@ -31,6 +32,7 @@ export default function App() {
         <Route path="/monitoring" element={<Monitoring />} />
         <Route path="/security" element={<Security />} />
         <Route path="/projects/:uuid" element={<ProjectDetail />} />
+        <Route path="/settings" element={<Settings />} />
       </Routes>
     </Layout>
   );

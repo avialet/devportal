@@ -200,6 +200,17 @@ export const api = {
     const qs = format ? `?format=${format}` : '';
     return `${BASE}/security/scans/${id}/report${qs}`;
   },
+
+  // Health
+  getHealth() {
+    return request<HealthResponse>('/health');
+  },
+  getBackups() {
+    return request<{ backups: BackupInfo[] }>('/health/backups');
+  },
+  createBackup() {
+    return request<{ status: string; path: string; size: number }>('/health/backups', { method: 'POST' });
+  },
 };
 
 export interface EnvCompareResponse {
@@ -232,5 +243,25 @@ export interface MonitorInfo {
 export interface MonitorsResponse {
   connected: boolean;
   monitors: MonitorInfo[];
+}
+
+export interface HealthCheck {
+  status: string;
+  latency?: number;
+  error?: string;
+}
+
+export interface HealthResponse {
+  status: string;
+  version: string;
+  uptime: number;
+  timestamp: string;
+  checks: Record<string, HealthCheck>;
+}
+
+export interface BackupInfo {
+  name: string;
+  size: number;
+  createdAt: string;
 }
 

@@ -79,7 +79,7 @@ export default function Dashboard() {
     <div className="space-y-4">
       {/* KPI Cards */}
       {stats && (
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <div className="panel px-3 py-2">
             <div className="text-2xs text-txt-muted uppercase tracking-wider">Projets</div>
             <div className="text-lg font-semibold text-txt-primary mt-0.5">{stats.projects}</div>
@@ -124,7 +124,35 @@ export default function Dashboard() {
         {projects.length === 0 ? (
           <div className="panel text-center py-12 text-txt-muted text-xs">Aucun projet</div>
         ) : (
-          <div className="panel overflow-hidden">
+          <>
+          <div className="lg:hidden space-y-2">
+            {projects.map(project => (
+              <div key={project.uuid} className="panel px-3 py-2">
+                <div className="flex items-center justify-between mb-1">
+                  <Link to={`/projects/${project.uuid}`} className="text-accent hover:text-accent-hover font-medium text-xs">
+                    {project.name}
+                  </Link>
+                  {project.portalManaged && (
+                    <span className="text-2xs bg-accent/10 text-accent px-1 py-0.5">portal</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 text-2xs text-txt-muted">
+                  <span>{project.environments.length} envs</span>
+                  <span>{project.apps.length} services</span>
+                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  {project.apps.map(app => (
+                    <span key={app.uuid} className="inline-flex items-center gap-1" title={`${app.env}: ${statusLabel(app.status)}`}>
+                      <span className={`w-1.5 h-1.5 ${statusDot(app.status)}`} />
+                      <span className="text-2xs text-txt-muted">{app.env}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="panel overflow-hidden hidden lg:block">
             <table className="w-full">
               <thead>
                 <tr>
@@ -170,11 +198,12 @@ export default function Dashboard() {
               </tbody>
             </table>
           </div>
+          </>
         )}
       </div>
 
       {/* Activity + Scans row */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Recent Activity */}
         <div className="panel">
           <div className="px-3 py-2 border-b border-border">

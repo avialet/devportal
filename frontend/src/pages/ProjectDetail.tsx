@@ -125,16 +125,16 @@ export default function ProjectDetail() {
     <div>
       <Link to="/" className="text-accent hover:text-accent-hover text-xs mb-2 inline-block">&larr; Projets</Link>
 
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-sm font-semibold text-txt-primary">{project.name}</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 gap-2">
+        <div className="flex items-center gap-3 min-w-0">
+          <h1 className="text-sm font-semibold text-txt-primary truncate">{project.name}</h1>
           {project.githubUrl && (
-            <span className="text-2xs text-txt-muted font-mono">{project.githubUrl.replace('https://github.com/', '')}</span>
+            <span className="text-2xs text-txt-muted font-mono hidden sm:inline">{project.githubUrl.replace('https://github.com/', '')}</span>
           )}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           <button onClick={() => setShowEnvCompare(!showEnvCompare)} className="btn-secondary">
-            {showEnvCompare ? 'Masquer Comparaison' : 'Comparer Envs'}
+            {showEnvCompare ? 'Masquer' : 'Comparer'}
           </button>
           <button onClick={handleDeleteProject} className="btn-danger">Supprimer</button>
         </div>
@@ -166,14 +166,14 @@ export default function ProjectDetail() {
 
                     return (
                       <div key={app.uuid} className="px-3 py-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                           <div className="flex items-center gap-2">
                             <span className={`w-1.5 h-1.5 ${statusDot(app.status)}`} />
                             <span className="text-xs font-medium text-txt-primary">{app.name}</span>
                             <span className="text-2xs text-txt-muted">{statusLabel(app.status)}</span>
                           </div>
 
-                          <div className="flex items-center gap-1">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <button onClick={() => handleDeploy(app.uuid)} disabled={isLoading} className="btn-primary disabled:opacity-50">
                               {isLoading ? '...' : 'Deploy'}
                             </button>

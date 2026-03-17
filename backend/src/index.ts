@@ -13,7 +13,9 @@ import monitorRoutes from './routes/monitor.routes.js';
 import securityRoutes from './routes/security.routes.js';
 import statsRoutes from './routes/stats.routes.js';
 import activityRoutes from './routes/activity.routes.js';
+import healthRoutes from './routes/health.routes.js';
 import { initUptimeKuma } from './services/uptimekuma.service.js';
+import { startAutoBackup } from './services/backup.service.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { existsSync } from 'fs';
@@ -61,9 +63,7 @@ async function main() {
   app.use('/api/stats', statsRoutes);
   app.use('/api/activity', activityRoutes);
 
-  app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', version: '1.0.0' });
-  });
+  app.use('/api/health', healthRoutes);
 
   // Serve frontend in production
   const frontendDist = join(__dirname, '../../frontend/dist');
@@ -75,6 +75,7 @@ async function main() {
   }
 
   await initUptimeKuma();
+  startAutoBackup();
   app.listen(config.port, () => {
     console.log(`DevPortal backend running on port ${config.port}`);
   });
