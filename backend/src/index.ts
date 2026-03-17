@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes.js';
 import projectRoutes from './routes/project.routes.js';
 import appRoutes from './routes/app.routes.js';
 import monitorRoutes from './routes/monitor.routes.js';
+import userRoutes from './routes/user.routes.js';
 import { initUptimeKuma } from './services/uptimekuma.service.js';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
@@ -23,6 +24,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/apps', appRoutes);
 app.use('/api/monitors', monitorRoutes);
+app.use('/api/users', userRoutes);
 
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', version: '1.0.0' });

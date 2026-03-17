@@ -116,6 +116,20 @@ export const api = {
   getMonitors() {
     return request<MonitorsResponse>('/monitors');
   },
+
+  // Users
+  listUsers() {
+    return request<UserInfo[]>('/users');
+  },
+  createUser(data: { email: string; displayName: string; password: string; role?: string }) {
+    return request<{ status: string }>('/users', { method: 'POST', body: JSON.stringify(data) });
+  },
+  updateUserRole(id: number, role: string) {
+    return request<{ status: string }>(`/users/${id}/role`, { method: 'PATCH', body: JSON.stringify({ role }) });
+  },
+  deleteUser(id: number) {
+    return request<{ status: string }>(`/users/${id}`, { method: 'DELETE' });
+  },
 };
 
 export interface MonitorInfo {
@@ -128,4 +142,12 @@ export interface MonitorInfo {
 export interface MonitorsResponse {
   connected: boolean;
   monitors: MonitorInfo[];
+}
+
+export interface UserInfo {
+  id: number;
+  email: string;
+  displayName: string;
+  role: string;
+  createdAt: string;
 }

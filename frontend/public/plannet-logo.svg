@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- plan.net logo - geometric cross pattern -->
+  <rect width="200" height="200" fill="#111" rx="12"/>
+
+  <!-- Grid of squares forming a plus/cross pattern -->
+  <!-- Row 1: center top -->
+  <rect x="78" y="30" width="44" height="44" rx="4" fill="#e53e3e"/>
+
+  <!-- Row 2: left, center, right -->
+  <rect x="30" y="78" width="44" height="44" rx="4" fill="#a0aec0"/>
+  <rect x="78" y="78" width="44" height="44" rx="4" fill="#ffffff"/>
+  <rect x="126" y="78" width="44" height="44" rx="4" fill="#cbd5e0"/>
+
+  <!-- Row 3: center bottom -->
+  <rect x="78" y="126" width="44" height="44" rx="4" fill="#718096"/>
+</svg>

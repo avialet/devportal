@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { api, type ProjectDetailResponse, type Deployment } from '../api/client';
 import { useMonitors } from '../hooks/useMonitors';
 import MonitorBadge from '../components/MonitorBadge';
+import EnvVarEditor from '../components/EnvVarEditor';
 
 function statusColor(status: string): string {
   if (status === 'running') return 'bg-green-500';
@@ -40,6 +41,7 @@ export default function ProjectDetail() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deployments, setDeployments] = useState<Record<string, Deployment[]>>({});
   const [showLogs, setShowLogs] = useState<string | null>(null);
+  const [showEnvs, setShowEnvs] = useState<string | null>(null);
 
   const loadProject = useCallback(async () => {
     if (!uuid) return;
@@ -192,6 +194,12 @@ export default function ProjectDetail() {
                             >
                               {isShowingLogs ? 'Masquer' : 'Logs'}
                             </button>
+                            <button
+                              onClick={() => setShowEnvs(showEnvs === app.uuid ? null : app.uuid)}
+                              className="text-xs bg-gray-50 text-gray-500 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition"
+                            >
+                              {showEnvs === app.uuid ? 'Masquer' : 'Env vars'}
+                            </button>
                           </div>
                         </div>
 
@@ -226,6 +234,10 @@ export default function ProjectDetail() {
                               </div>
                             ))}
                           </div>
+                        )}
+
+                        {showEnvs === app.uuid && (
+                          <EnvVarEditor appUuid={app.uuid} />
                         )}
                       </div>
                     );
