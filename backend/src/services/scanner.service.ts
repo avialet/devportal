@@ -1,7 +1,8 @@
-import { spawn, type ChildProcess } from 'child_process';
+import { spawn, execSync, type ChildProcess } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import crypto from 'crypto';
+import os from 'os';
 import { config } from '../config.js';
 import { runQuery, queryOne, queryAll } from '../db/database.js';
 import type { SecurityScan, ScanTool, FindingsSummary, ScanStatus } from '@devportal/shared';
@@ -192,13 +193,46 @@ function runScan(
 }
 
 /**
- * Translate a container-internal scanDir path to the host-side path.
- * When running Docker-in-Docker (container spawning sibling containers),
- * volume mounts (-v) are resolved from the HOST, not the container.
- * DOCKER_HOST_DATA_DIR maps the container's DATA_DIR to its host equivalent.
+ * Auto-detect the host-side path of DATA_DIR by inspecting the current container's mounts.
+ * When running Docker-in-Docker, volume mounts (-v) are resolved from the HOST.
+ * We use `docker inspect` on our own container to find where /app/data maps on the host.
+ * Cached after first successful detection.
  */
+let cachedHostDataDir: string | null = null;
+
+function detectHostDataDir(): string | null {
+  if (cachedHostDataDir !== null) return cachedHostDataDir || null;
+
+  // First check explicit config (fallback)
+  if (config.dockerHostDataDir) {
+    cachedHostDataDir = config.dockerHostDataDir;
+    return cachedHostDataDir;
+  }
+
+  try {
+    // Container ID = hostname in Docker
+    const containerId = os.hostname();
+    const mountsJson = execSync(
+      `docker inspect ${containerId} --format '{{json .Mounts}}'`,
+      { encoding: 'utf-8', timeout: 5000 },
+    ).trim();
+    const mounts = JSON.parse(mountsJson) as { Source: string; Destination: string }[];
+    const dataMount = mounts.find((m) => m.Destination === config.dataDir);
+    if (dataMount) {
+      cachedHostDataDir = dataMount.Source;
+      console.log(`[scanner] Auto-detected host data dir: ${cachedHostDataDir}`);
+      return cachedHostDataDir;
+    }
+  } catch {
+    // Not in a container or Docker not available
+  }
+
+  cachedHostDataDir = ''; // empty = dev mode, no translation
+  return null;
+}
+
 function toHostPath(scanDir: string): string {
-  const hostDataDir = config.dockerHostDataDir;
+  const hostDataDir = detectHostDataDir();
   if (!hostDataDir) return scanDir; // dev mode: not in container
   const dataDir = config.dataDir;
   if (scanDir.startsWith(dataDir)) {
