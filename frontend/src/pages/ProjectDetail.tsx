@@ -187,13 +187,28 @@ export default function ProjectDetail() {
             )}
             {/* Screenshot thumbnail - for any project with a FQDN */}
             {sortedEnvs.some(e => e.apps.some(a => a.fqdn)) && (
-              <div className="mb-3 border border-border overflow-hidden" style={{ maxWidth: '320px', aspectRatio: '16/9' }}>
-                <img
-                  src={`/api/projects/${project.uuid}/screenshot`}
-                  alt={`${project.name} screenshot`}
-                  className="w-full h-full object-cover object-top"
-                  onError={e => (e.currentTarget.parentElement!.style.display = 'none')}
-                />
+              <div className="mb-3 group/shot relative" style={{ maxWidth: '320px' }}>
+                <div className="border border-border overflow-hidden" style={{ aspectRatio: '16/9' }}>
+                  <img
+                    id={`shot-${project.uuid}`}
+                    src={`/api/projects/${project.uuid}/screenshot`}
+                    alt={`${project.name} screenshot`}
+                    className="w-full h-full object-cover object-top"
+                    onError={e => (e.currentTarget.parentElement!.parentElement!.style.display = 'none')}
+                  />
+                </div>
+                <button
+                  title="Actualiser le screenshot"
+                  className="absolute top-1 right-1 opacity-0 group-hover/shot:opacity-100 transition-opacity bg-surface-1/80 border border-border p-1 text-txt-muted hover:text-txt-primary"
+                  onClick={() => {
+                    const img = document.getElementById(`shot-${project.uuid}`) as HTMLImageElement | null;
+                    if (img) img.src = `/api/projects/${project.uuid}/screenshot?refresh=1&t=${Date.now()}`;
+                  }}
+                >
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
               </div>
             )}
           </div>

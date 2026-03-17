@@ -220,18 +220,16 @@ router.get('/:uuid/screenshot', async (req: AuthRequest, res: Response): Promise
       return;
     }
 
-    // Check cache (1h TTL)
+    // Check cache - permanent (never re-fetch unless ?refresh=1)
     const cacheDir = join(config.dataDir, 'screenshots');
     const cachePath = join(cacheDir, `${uuid}.png`);
+    const forceRefresh = req.query['refresh'] === '1';
     try {
-      if (existsSync(cachePath)) {
-        const age = Date.now() - statSync(cachePath).mtime.getTime();
-        if (age < 3_600_000) {
-          res.setHeader('Content-Type', 'image/png');
-          res.setHeader('Cache-Control', 'public, max-age=3600');
-          res.send(readFileSync(cachePath));
-          return;
-        }
+      if (!forceRefresh && existsSync(cachePath)) {
+        res.setHeader('Content-Type', 'image/png');
+        res.setHeader('Cache-Control', 'public, max-age=86400');
+        res.send(readFileSync(cachePath));
+        return;
       }
     } catch { /* cache miss */ }
 
