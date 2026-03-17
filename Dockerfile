@@ -2,6 +2,9 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 
+# Force development mode during build so devDependencies (typescript, vite) are installed
+ENV NODE_ENV=development
+
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY backend/package.json backend/
