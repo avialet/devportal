@@ -540,14 +540,28 @@ router.post('/:uuid/fix-git-auth', async (req: AuthRequest, res: Response): Prom
         const detail = await coolify.getEnvironmentDetail(uuid, env.name);
         for (const app of detail.applications ?? []) {
           const repo = app.git_repository ?? '';
-          // Only patch if it's a simple owner/repo format (no token already)
-          if (repo && !repo.includes('@') && !repo.startsWith('http')) {
-            const authUrl = `https://oauth2:${dbUser.github_token}@github.com/${repo}`;
+          let authUrl: string | null = null;
+
+          if (!repo) continue;
+          if (repo.includes(`oauth2:`)) continue; // already has token
+
+          if (!repo.startsWith('http')) {
+            // Format: owner/repo → https://oauth2:token@github.com/owner/repo
+            authUrl = `https://oauth2:${dbUser.github_token}@github.com/${repo}`;
+          } else if (repo.startsWith('https://github.com/') && !repo.includes('@')) {
+            // Format: https://github.com/owner/repo → inject token
+            authUrl = repo.replace('https://github.com/', `https://oauth2:${dbUser.github_token}@github.com/`);
+          }
+
+          if (authUrl) {
+            console.log(`[fix-git-auth] Patching ${app.uuid} (${env.name}): ${repo} → ${authUrl.replace(dbUser.github_token, '***')}`);
             await coolify.updateApplication(app.uuid, { git_repository: authUrl });
             patched.push(`${env.name}/${app.uuid}`);
           }
         }
-      } catch { /* skip */ }
+      } catch (e: any) {
+        console.error(`[fix-git-auth] Error on env ${env.name}:`, e?.message);
+      }
     }
 
     coolify.invalidateCache();
