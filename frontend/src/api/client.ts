@@ -89,7 +89,7 @@ export const api = {
     return request<{ user: AuthResponse['user'] }>('/auth/me');
   },
   logout() {
-    return request<{ ok: boolean }>('/auth/logout', { method: 'POST' });
+    return request<{ ok: boolean; logoutUrl?: string }>('/auth/logout', { method: 'POST' });
   },
   getProviders() {
     return request<{ oidc: boolean }>('/auth/providers');

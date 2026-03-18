@@ -6,5 +6,6 @@ declare module 'express-session' {
     user?: User;
     oidcState?: string;
     oidcNonce?: string;
+    idToken?: string;
   }
 }

@@ -539,19 +539,14 @@ router.delete('/:uuid/members/:memberId', async (req: AuthRequest, res: Response
  *         description: Project deleted
  */
 router.delete('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
+  const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
   try {
     const uuid = param(req, 'uuid');
-    // Delete associated monitors
-    const portal = queryOne<DbProject>('SELECT * FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
-    if (portal) {
-      const monitors = monitoring.getMonitorsForProject(portal.id);
-      for (const m of monitors) {
-        monitoring.deleteMonitor(m.id);
-      }
-    }
-    // Remove from portal DB
-    runQuery('DELETE FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
-    // Delete apps from Coolify first (project can't be deleted with resources)
+    const errors: string[] = [];
+
+    // --- Phase 1: Stop all apps gracefully before any deletion ---
+    let allApps: { uuid: string; env: string }[] = [];
     try {
       const project = await coolify.getProject(uuid);
       const envs = project.environments ?? [];
@@ -559,16 +554,70 @@ router.delete('/:uuid', async (req: AuthRequest, res: Response): Promise<void> =
         try {
           const detail = await coolify.getEnvironmentDetail(uuid, env.name);
           for (const app of detail.applications ?? []) {
-            try { await coolify.deleteApplication(app.uuid); } catch { /* skip */ }
+            allApps.push({ uuid: app.uuid, env: env.name });
           }
-        } catch { /* skip */ }
+        } catch (e: any) {
+          errors.push(`env ${env.name}: ${e?.message ?? 'skip'}`);
+        }
       }
-      await coolify.deleteProject(uuid);
-    } catch {
-      // Coolify project may not exist or already deleted
+    } catch (e: any) {
+      // Coolify project may not exist — proceed to clean portal DB
+      console.warn(`Coolify project ${uuid} not found, cleaning portal DB only:`, e?.message);
     }
+
+    // Stop each app one by one with a pause to avoid overloading Coolify
+    for (const app of allApps) {
+      try {
+        await coolify.stopApplication(app.uuid);
+        console.log(`Stopped app ${app.uuid} (${app.env})`);
+      } catch { /* app may already be stopped */ }
+      await delay(1500);
+    }
+
+    // --- Phase 2: Delete apps one by one with retries ---
+    for (const app of allApps) {
+      let deleted = false;
+      for (let attempt = 1; attempt <= 3 && !deleted; attempt++) {
+        try {
+          await coolify.deleteApplication(app.uuid);
+          console.log(`Deleted app ${app.uuid} (attempt ${attempt})`);
+          deleted = true;
+        } catch (e: any) {
+          if (attempt < 3) {
+            console.warn(`Retry ${attempt}/3 deleting app ${app.uuid}: ${e?.message}`);
+            await delay(2000 * attempt);
+          } else {
+            errors.push(`app ${app.uuid}: ${e?.message ?? 'delete failed'}`);
+          }
+        }
+      }
+      await delay(1000);
+    }
+
+    // --- Phase 3: Delete the Coolify project shell ---
+    if (allApps.length > 0 || errors.length === 0) {
+      await delay(2000);
+      try {
+        await coolify.deleteProject(uuid);
+        console.log(`Deleted Coolify project ${uuid}`);
+      } catch (e: any) {
+        // Not critical — project shell can be cleaned up later
+        errors.push(`project: ${e?.message ?? 'delete failed'}`);
+      }
+    }
+
+    // --- Phase 4: Clean portal DB (monitors + project record) ---
+    const portal = queryOne<DbProject>('SELECT * FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+    if (portal) {
+      const monitors = monitoring.getMonitorsForProject(portal.id);
+      for (const m of monitors) {
+        monitoring.deleteMonitor(m.id);
+      }
+    }
+    runQuery('DELETE FROM portal_projects WHERE coolify_project_uuid = ?', [uuid]);
+
     logActivity(req.user?.id ?? null, null, 'delete_project', uuid);
-    res.json({ status: 'deleted' });
+    res.json({ status: 'deleted', warnings: errors.length > 0 ? errors : undefined });
   } catch (err) {
     console.error('Error deleting project:', err);
     res.status(502).json({ error: 'error', message: 'Erreur lors de la suppression' });

@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import { config } from '../config.js';
 import { queryOne, runQuery, logActivity } from '../db/database.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
-import { getOidcConfig, buildLoginUrl, handleCallback, mapGroupsToRole, isOidcConfigured } from '../services/oidc.service.js';
+import { getOidcConfig, buildLoginUrl, handleCallback, mapGroupsToRole, isOidcConfigured, getEndSessionUrl } from '../services/oidc.service.js';
 import type { User } from '@devportal/shared';
 
 interface DbUser {
@@ -141,6 +141,7 @@ router.get('/callback', async (req: AuthRequest, res: Response): Promise<void> =
       createdAt: dbUser.created_at,
     };
     req.session.user = user;
+    req.session.idToken = userInfo.idToken;
     logActivity(user.id, null, 'login', user.email);
 
     // Redirect to frontend
@@ -151,10 +152,12 @@ router.get('/callback', async (req: AuthRequest, res: Response): Promise<void> =
   }
 });
 
-// Logout
+// Logout — destroy session + return Authentik end_session URL if OIDC
 router.post('/logout', (req: AuthRequest, res: Response): void => {
+  const idToken = req.session.idToken;
+  const logoutUrl = isOidcConfigured() ? getEndSessionUrl(idToken) : null;
   req.session.destroy(() => {
-    res.json({ ok: true });
+    res.json({ ok: true, logoutUrl });
   });
 });
 

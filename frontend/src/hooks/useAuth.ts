@@ -21,8 +21,17 @@ export function useAuth() {
   }, []);
 
   const logout = useCallback(async () => {
-    await api.logout().catch(() => {});
-    setUser(null);
+    try {
+      const result = await api.logout();
+      setUser(null);
+      // Redirect to Authentik logout if OIDC was used
+      if (result.logoutUrl) {
+        window.location.href = result.logoutUrl;
+        return;
+      }
+    } catch {
+      setUser(null);
+    }
   }, []);
 
   return { user, loading, oidcAvailable, loginWithOidc, logout };
