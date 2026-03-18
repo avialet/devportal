@@ -8,6 +8,21 @@ interface Props {
   onFinished?: () => void;
 }
 
+function parseLogs(raw: string): string {
+  if (!raw) return '';
+  // Coolify returns logs as JSON array: [{ output, type, timestamp }]
+  try {
+    const entries = JSON.parse(raw);
+    if (Array.isArray(entries)) {
+      return entries
+        .filter((e: any) => e.output && !e.hidden)
+        .map((e: any) => e.output)
+        .join('\n');
+    }
+  } catch { /* not JSON, treat as plain text */ }
+  return raw;
+}
+
 export default function DeployLog({ appUuid, deploymentUuid, onClose, onFinished }: Props) {
   const [deployment, setDeployment] = useState<Deployment | null>(null);
   const [loading, setLoading] = useState(true);
@@ -107,9 +122,7 @@ export default function DeployLog({ appUuid, deploymentUuid, onClose, onFinished
           className="p-2 bg-[#0d1117] text-2xs text-[#c9d1d9] font-mono max-h-80 overflow-auto whitespace-pre-wrap break-all leading-relaxed"
         >
           {deployment?.logs
-            ? deployment.logs
-                // Colorize common build log patterns
-                .replace(/^(Step \d+\/\d+.*)$/gm, '\x1b[36m$1\x1b[0m')
+            ? parseLogs(deployment.logs)
             : 'En attente des logs...'}
         </pre>
       )}
