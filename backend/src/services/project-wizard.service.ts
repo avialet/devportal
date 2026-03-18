@@ -34,6 +34,8 @@ const ENV_BRANCHES: Record<EnvName, string> = {
   production: 'main',
 };
 
+const pause = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 export async function runWizard(
   input: WizardInput,
   onProgress: OnProgress
@@ -61,6 +63,7 @@ export async function runWizard(
     for (const envName of ENV_NAMES) {
       if (!existingNames.has(envName)) {
         await coolify.createEnvironment(project.uuid, envName);
+        await pause(1500);
       }
     }
     onProgress({ step: 2, label: 'Creation des environnements', status: 'done', detail: 'dev + staging + production' });
@@ -102,6 +105,9 @@ export async function runWizard(
         status: 'done',
         detail: fqdn,
       });
+
+      // Pause between app creations to avoid Coolify rate limiting
+      await pause(2000);
     } catch (err) {
       onProgress({
         step: stepNum,
@@ -174,6 +180,7 @@ export async function runWizard(
     if (apps[envName]) {
       try {
         await coolify.deployApplication(apps[envName]!.uuid);
+        await pause(2000);
       } catch {
         // Non-blocking
       }

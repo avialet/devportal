@@ -3,26 +3,44 @@ import { config } from '../config.js';
 const BASE = config.coolifyApiUrl;
 const TOKEN = config.coolifyApiToken;
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = `${BASE}${path}`;
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Authorization': `Bearer ${TOKEN}`,
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      ...(options.headers as Record<string, string> ?? {}),
-    },
-  });
+const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Coolify API ${res.status}: ${text}`);
+async function request<T>(path: string, options: RequestInit = {}, retries = 3): Promise<T> {
+  const url = `${BASE}${path}`;
+
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        'Authorization': `Bearer ${TOKEN}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...(options.headers as Record<string, string> ?? {}),
+      },
+    });
+
+    // Rate limited — wait and retry
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('retry-after') ?? '', 10);
+      const waitMs = retryAfter ? retryAfter * 1000 : 3000 * attempt;
+      console.warn(`Coolify 429 on ${path}, retry ${attempt}/${retries} in ${waitMs}ms`);
+      if (attempt < retries) {
+        await delay(waitMs);
+        continue;
+      }
+    }
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Coolify API ${res.status}: ${text}`);
+    }
+
+    const text = await res.text();
+    if (!text) return {} as T;
+    return JSON.parse(text);
   }
 
-  const text = await res.text();
-  if (!text) return {} as T;
-  return JSON.parse(text);
+  throw new Error(`Coolify API: max retries reached for ${path}`);
 }
 
 // --- Projects ---
