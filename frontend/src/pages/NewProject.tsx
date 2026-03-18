@@ -92,7 +92,8 @@ export default function NewProject() {
     const repo = repos.find(r => r.htmlUrl === selectedRepo);
     if (repo) {
       setGithubUrl(repo.htmlUrl);
-      if (!name) setName(repo.name);
+      // Always use repo name — ensures consistency between project name and repo
+      setName(repo.name);
       startWizard(repo.htmlUrl);
     }
   }
@@ -304,14 +305,18 @@ export default function NewProject() {
       <div className="space-y-3">
         {/* Project name */}
         <div>
-          <label className="block text-2xs text-txt-muted mb-1">Nom du projet *</label>
+          <label className="block text-2xs text-txt-muted mb-1">
+            Nom du projet *
+            {repoMode === 'existing' && <span className="text-txt-muted ml-1">(auto depuis le depot)</span>}
+          </label>
           <input
             type="text"
             value={name}
             onChange={e => setName(e.target.value)}
             required
+            readOnly={repoMode === 'existing'}
             pattern="[a-zA-Z0-9-]+"
-            className="input-field w-full"
+            className={`input-field w-full ${repoMode === 'existing' ? 'opacity-60 cursor-not-allowed' : ''}`}
             placeholder="mon-app"
           />
           {slug && (
@@ -414,7 +419,12 @@ export default function NewProject() {
               ) : (
                 <select
                   value={selectedRepo}
-                  onChange={e => setSelectedRepo(e.target.value)}
+                  onChange={e => {
+                    setSelectedRepo(e.target.value);
+                    // Auto-fill name from selected repo
+                    const repo = repos.find(r => r.htmlUrl === e.target.value);
+                    if (repo) setName(repo.name);
+                  }}
                   className="input-field w-full"
                 >
                   <option value="">-- Choisir un depot --</option>
