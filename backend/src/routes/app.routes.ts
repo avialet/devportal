@@ -58,13 +58,33 @@ router.get('/:uuid', async (req: AuthRequest, res: Response): Promise<void> => {
  */
 router.post('/:uuid/deploy', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const result = await coolify.deployApplication(param(req, 'uuid'));
-    logActivity(req.user?.id ?? null, null, 'deploy', param(req, 'uuid'));
-    res.json(result);
-    triggerAutoScan(param(req, 'uuid'), req.user?.id ?? null).catch(() => {});
+    const appUuid = param(req, 'uuid');
+    const result = await coolify.deployApplication(appUuid);
+    logActivity(req.user?.id ?? null, null, 'deploy', appUuid);
+
+    // Coolify may return deployment_uuid in various formats or not at all
+    let deploymentUuid = result.deployment_uuid
+      || (result as any).deploymentUuid
+      || (result as any).uuid;
+
+    // If no deployment_uuid in response, fetch latest deployment
+    if (!deploymentUuid) {
+      try {
+        // Wait a moment for Coolify to register the deployment
+        await new Promise(r => setTimeout(r, 1500));
+        const deployments = await coolify.getDeployments(appUuid);
+        if (deployments.length > 0) {
+          deploymentUuid = deployments[0].uuid;
+        }
+      } catch { /* ignore */ }
+    }
+
+    console.log('[Deploy] Coolify response:', JSON.stringify(result), '-> deployment_uuid:', deploymentUuid);
+    res.json({ ...result, deployment_uuid: deploymentUuid });
+    triggerAutoScan(appUuid, req.user?.id ?? null).catch(() => {});
   } catch (err) {
     console.error('Error deploying:', err);
-    res.status(502).json({ error: 'coolify_error', message: 'Erreur lors du deploiement' });
+    res.status(502).json({ error: 'coolify_error', message: String(err) });
   }
 });
 
@@ -113,12 +133,26 @@ router.post('/:uuid/stop', async (req: AuthRequest, res: Response): Promise<void
  */
 router.post('/:uuid/restart', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const result = await coolify.restartApplication(param(req, 'uuid'));
-    logActivity(req.user?.id ?? null, null, 'restart', param(req, 'uuid'));
-    res.json(result);
+    const appUuid = param(req, 'uuid');
+    const result = await coolify.restartApplication(appUuid);
+    logActivity(req.user?.id ?? null, null, 'restart', appUuid);
+
+    let deploymentUuid = (result as any).deployment_uuid
+      || (result as any).deploymentUuid
+      || (result as any).uuid;
+
+    if (!deploymentUuid) {
+      try {
+        await new Promise(r => setTimeout(r, 1500));
+        const deployments = await coolify.getDeployments(appUuid);
+        if (deployments.length > 0) deploymentUuid = deployments[0].uuid;
+      } catch { /* ignore */ }
+    }
+
+    res.json({ ...result, deployment_uuid: deploymentUuid });
   } catch (err) {
     console.error('Error restarting:', err);
-    res.status(502).json({ error: 'coolify_error', message: 'Erreur lors du redemarrage' });
+    res.status(502).json({ error: 'coolify_error', message: String(err) });
   }
 });
 
