@@ -349,6 +349,18 @@ export async function addDeployKey(
 }
 
 /**
+ * Check if a GitHub repo exists (accessible with the given token)
+ */
+export async function repoExists(token: string, owner: string, repo: string): Promise<boolean> {
+  try {
+    await ghRequest<{ id: number }>(`/repos/${owner}/${repo}`, token);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Check if a GitHub repo is private
  */
 export async function isRepoPrivate(token: string, owner: string, repo: string): Promise<boolean> {

@@ -1,6 +1,6 @@
 import * as coolify from './coolify.service.js';
 import * as monitoring from './monitoring.service.js';
-import { createWorkflowFile, isRepoPrivate, addDeployKey, branchExists, createBranch } from './github.service.js';
+import { createWorkflowFile, isRepoPrivate, addDeployKey, branchExists, createBranch, repoExists } from './github.service.js';
 import { runQuery, queryOne } from '../db/database.js';
 import { buildFqdn, ENV_NAMES, type EnvName } from '@devportal/shared';
 import { config } from '../config.js';
@@ -79,10 +79,17 @@ export async function runWizard(
   const repoPath = githubUrl.replace('https://github.com/', '').replace(/\.git$/, '');
   const [repoOwner, repoName] = repoPath.split('/');
 
-  // Check if repo is private and set up deploy key if needed
+  // Verify repo exists before proceeding
   let usePrivateKey = false;
   let deployKeyUuid: string | null = null;
   if (input.githubToken && repoOwner && repoName) {
+    const exists = await repoExists(input.githubToken, repoOwner, repoName);
+    if (!exists) {
+      const errMsg = `Le repo GitHub ${repoOwner}/${repoName} n'existe pas ou n'est pas accessible avec votre token.`;
+      onProgress({ step: 2, label: 'Verification du repo', status: 'error', detail: errMsg });
+      throw new Error(errMsg);
+    }
+
     const isPrivate = await isRepoPrivate(input.githubToken, repoOwner, repoName);
     if (isPrivate) {
       const deployKey = await coolify.getGitDeployKey();
