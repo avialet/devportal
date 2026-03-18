@@ -153,9 +153,18 @@ router.get('/callback', async (req: AuthRequest, res: Response): Promise<void> =
 });
 
 // Logout — destroy session + return Authentik end_session URL if OIDC
-router.post('/logout', (req: AuthRequest, res: Response): void => {
+router.post('/logout', async (req: AuthRequest, res: Response): Promise<void> => {
   const idToken = req.session.idToken;
-  const logoutUrl = isOidcConfigured() ? getEndSessionUrl(idToken) : null;
+  let logoutUrl: string | null = null;
+
+  if (isOidcConfigured()) {
+    // Ensure OIDC config is loaded (may be null after server restart)
+    try {
+      await getOidcConfig();
+    } catch { /* ignore */ }
+    logoutUrl = getEndSessionUrl(idToken);
+  }
+
   req.session.destroy(() => {
     res.json({ ok: true, logoutUrl });
   });
