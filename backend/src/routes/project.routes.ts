@@ -565,13 +565,13 @@ router.delete('/:uuid', async (req: AuthRequest, res: Response): Promise<void> =
       console.warn(`Coolify project ${uuid} not found, cleaning portal DB only:`, e?.message);
     }
 
-    // Stop each app one by one with a pause to avoid overloading Coolify
+    // Stop each app one by one with generous pauses for Coolify rate limits
     for (const app of allApps) {
       try {
         await coolify.stopApplication(app.uuid);
         console.log(`Stopped app ${app.uuid} (${app.env})`);
       } catch { /* app may already be stopped */ }
-      await delay(1500);
+      await delay(4000);
     }
 
     // --- Phase 2: Delete apps one by one with retries ---
@@ -585,13 +585,13 @@ router.delete('/:uuid', async (req: AuthRequest, res: Response): Promise<void> =
         } catch (e: any) {
           if (attempt < 3) {
             console.warn(`Retry ${attempt}/3 deleting app ${app.uuid}: ${e?.message}`);
-            await delay(2000 * attempt);
+            await delay(10000 * attempt);
           } else {
             errors.push(`app ${app.uuid}: ${e?.message ?? 'delete failed'}`);
           }
         }
       }
-      await delay(1000);
+      await delay(4000);
     }
 
     // --- Phase 3: Delete the Coolify project shell ---

@@ -5,7 +5,7 @@ const TOKEN = config.coolifyApiToken;
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-async function request<T>(path: string, options: RequestInit = {}, retries = 3): Promise<T> {
+async function request<T>(path: string, options: RequestInit = {}, retries = 5): Promise<T> {
   const url = `${BASE}${path}`;
 
   for (let attempt = 1; attempt <= retries; attempt++) {
@@ -19,15 +19,23 @@ async function request<T>(path: string, options: RequestInit = {}, retries = 3):
       },
     });
 
-    // Rate limited — wait and retry
+    // Rate limited — wait longer each retry (10s, 20s, 30s, 40s, 50s)
     if (res.status === 429) {
       const retryAfter = parseInt(res.headers.get('retry-after') ?? '', 10);
-      const waitMs = retryAfter ? retryAfter * 1000 : 3000 * attempt;
-      console.warn(`Coolify 429 on ${path}, retry ${attempt}/${retries} in ${waitMs}ms`);
+      const waitMs = retryAfter ? retryAfter * 1000 : 10000 * attempt;
+      console.warn(`Coolify 429 on ${path}, retry ${attempt}/${retries} in ${Math.round(waitMs / 1000)}s`);
       if (attempt < retries) {
         await delay(waitMs);
         continue;
       }
+    }
+
+    // Server errors — also retry with backoff
+    if (res.status >= 500 && attempt < retries) {
+      const waitMs = 5000 * attempt;
+      console.warn(`Coolify ${res.status} on ${path}, retry ${attempt}/${retries} in ${Math.round(waitMs / 1000)}s`);
+      await delay(waitMs);
+      continue;
     }
 
     if (!res.ok) {

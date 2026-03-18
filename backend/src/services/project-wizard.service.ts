@@ -63,7 +63,7 @@ export async function runWizard(
     for (const envName of ENV_NAMES) {
       if (!existingNames.has(envName)) {
         await coolify.createEnvironment(project.uuid, envName);
-        await pause(1500);
+        await pause(3000);
       }
     }
     onProgress({ step: 2, label: 'Creation des environnements', status: 'done', detail: 'dev + staging + production' });
@@ -113,7 +113,7 @@ export async function runWizard(
       });
 
       // Pause between app creations to avoid Coolify rate limiting
-      await pause(2000);
+      await pause(4000);
     } catch (err) {
       onProgress({
         step: stepNum,
@@ -186,7 +186,7 @@ export async function runWizard(
     if (apps[envName]) {
       try {
         await coolify.deployApplication(apps[envName]!.uuid);
-        await pause(2000);
+        await pause(4000);
       } catch {
         // Non-blocking
       }
