@@ -176,6 +176,7 @@ export async function restartApplication(uuid: string): Promise<{ deployment_uui
 export interface CoolifyDeployment {
   id: number;
   uuid: string;
+  deployment_uuid: string;
   status: string;
   created_at: string;
   finished_at: string | null;
@@ -183,12 +184,24 @@ export interface CoolifyDeployment {
   logs: string;
 }
 
+// Normalize: Coolify uses deployment_uuid, our frontend expects uuid
+function normalizeDep(d: any): CoolifyDeployment {
+  return {
+    ...d,
+    uuid: d.deployment_uuid || d.uuid || '',
+  };
+}
+
 export async function getDeployments(appUuid: string): Promise<CoolifyDeployment[]> {
-  return request<CoolifyDeployment[]>(`/deployments/applications/${appUuid}`);
+  // Coolify returns { count, deployments: [...] }
+  const result = await request<{ deployments: any[] } | any[]>(`/deployments/applications/${appUuid}`);
+  const list = Array.isArray(result) ? result : (result as any).deployments ?? [];
+  return list.map(normalizeDep);
 }
 
 export async function getDeployment(deploymentUuid: string): Promise<CoolifyDeployment> {
-  return request<CoolifyDeployment>(`/deployments/${deploymentUuid}`);
+  const dep = await request<any>(`/deployments/${deploymentUuid}`);
+  return normalizeDep(dep);
 }
 
 // --- Application Logs ---
