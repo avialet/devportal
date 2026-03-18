@@ -51,64 +51,61 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
 
     const portalMap = new Map(portalProjects.map(p => [p.coolify_project_uuid, p]));
 
-    // Coolify /projects listing doesn't include environments/apps,
-    // so we fetch each project individually for full details
-    const projects = await Promise.all(
-      coolifyProjects.map(async (cp) => {
-        const portal = portalMap.get(cp.uuid);
+    // Fetch each project sequentially to avoid Coolify rate limiting
+    // (with 30s cache, only the first load is slow — subsequent loads are instant)
+    const projects = [];
+    for (const cp of coolifyProjects) {
+      const portal = portalMap.get(cp.uuid);
 
-        // Fetch full project to get environments list
-        let envs: coolify.CoolifyEnvironment[] = [];
+      // Fetch full project to get environments list
+      let envs: coolify.CoolifyEnvironment[] = [];
+      try {
+        const fullProject = await coolify.getProject(cp.uuid);
+        envs = fullProject.environments ?? [];
+      } catch { /* skip */ }
+
+      // For each environment, fetch apps sequentially
+      const apps: { env: string; uuid: string; fqdn: string | null; status: string }[] = [];
+      for (const env of envs) {
         try {
-          const fullProject = await coolify.getProject(cp.uuid);
-          envs = fullProject.environments ?? [];
+          const detail = await coolify.getEnvironmentDetail(cp.uuid, env.name);
+          if (detail.applications) {
+            for (const app of detail.applications) {
+              apps.push({
+                env: env.name,
+                uuid: app.uuid,
+                fqdn: app.fqdn,
+                status: app.status,
+              });
+            }
+          }
         } catch { /* skip */ }
+      }
 
-        // For each environment, fetch apps via environment detail endpoint
-        const apps: { env: string; uuid: string; fqdn: string | null; status: string }[] = [];
-        await Promise.all(
-          envs.map(async (env) => {
-            try {
-              const detail = await coolify.getEnvironmentDetail(cp.uuid, env.name);
-              if (detail.applications) {
-                for (const app of detail.applications) {
-                  apps.push({
-                    env: env.name,
-                    uuid: app.uuid,
-                    fqdn: app.fqdn,
-                    status: app.status,
-                  });
-                }
-              }
-            } catch { /* skip */ }
-          })
-        );
+      // Monitor status per env (local DB only, no Coolify calls)
+      const projectMonitorList = portal
+        ? monitoring.getMonitorsForProject(portal.id)
+        : [];
+      const monitorStatus: Record<string, { status: 'up' | 'down' | 'pending'; uptime: number | null }> = {};
+      for (const m of projectMonitorList) {
+        const s = monitoring.getMonitorStatus(m.id);
+        const uptime = monitoring.getUptimePercent(m.id, 24);
+        monitorStatus[m.environment ?? 'unknown'] = { status: s.status, uptime };
+      }
 
-        // Monitor status per env
-        const projectMonitorList = portal
-          ? monitoring.getMonitorsForProject(portal.id)
-          : [];
-        const monitorStatus: Record<string, { status: 'up' | 'down' | 'pending'; uptime: number | null }> = {};
-        for (const m of projectMonitorList) {
-          const s = monitoring.getMonitorStatus(m.id);
-          const uptime = monitoring.getUptimePercent(m.id, 24);
-          monitorStatus[m.environment ?? 'unknown'] = { status: s.status, uptime };
-        }
-
-        return {
-          uuid: cp.uuid,
-          name: cp.name,
-          description: cp.description,
-          githubUrl: portal?.github_url ?? null,
-          portalManaged: !!portal,
-          portalId: portal?.id ?? null,
-          environments: envs.map(e => e.name),
-          apps,
-          monitorStatus,
-          createdAt: portal?.created_at ?? null,
-        };
-      })
-    );
+      projects.push({
+        uuid: cp.uuid,
+        name: cp.name,
+        description: cp.description,
+        githubUrl: portal?.github_url ?? null,
+        portalManaged: !!portal,
+        portalId: portal?.id ?? null,
+        environments: envs.map(e => e.name),
+        apps,
+        monitorStatus,
+        createdAt: portal?.created_at ?? null,
+      });
+    }
 
     res.json(projects);
   } catch (err) {

@@ -5,8 +5,30 @@ const TOKEN = config.coolifyApiToken;
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+// ─── In-memory cache for GET requests (30s TTL) ───
+const apiCache = new Map<string, { data: unknown; expires: number }>();
+const CACHE_TTL = 30_000; // 30 seconds
+
+export function invalidateCache(): void {
+  apiCache.clear();
+}
+
 async function request<T>(path: string, options: RequestInit = {}, retries = 5): Promise<T> {
+  const method = (options.method ?? 'GET').toUpperCase();
   const url = `${BASE}${path}`;
+
+  // Invalidate cache on any write operation
+  if (method !== 'GET') {
+    apiCache.clear();
+  }
+
+  // Serve from cache for GET requests
+  if (method === 'GET') {
+    const cached = apiCache.get(path);
+    if (cached && cached.expires > Date.now()) {
+      return cached.data as T;
+    }
+  }
 
   for (let attempt = 1; attempt <= retries; attempt++) {
     const res = await fetch(url, {
@@ -44,8 +66,14 @@ async function request<T>(path: string, options: RequestInit = {}, retries = 5):
     }
 
     const text = await res.text();
-    if (!text) return {} as T;
-    return JSON.parse(text);
+    const result = text ? JSON.parse(text) : {} as T;
+
+    // Store in cache for GET requests
+    if (method === 'GET') {
+      apiCache.set(path, { data: result, expires: Date.now() + CACHE_TTL });
+    }
+
+    return result as T;
   }
 
   throw new Error(`Coolify API: max retries reached for ${path}`);

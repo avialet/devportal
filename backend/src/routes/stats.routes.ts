@@ -19,32 +19,22 @@ router.use(authMiddleware);
  */
 router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const projects = await coolify.listProjects();
+    // Use listApplications() instead of iterating projects+envs (1 API call vs N×4)
+    const [projects, apps] = await Promise.all([
+      coolify.listProjects(),
+      coolify.listApplications(),
+    ]);
+
     const monitors = monitoring.getAllMonitorStatuses();
 
-    // Count services by status — need to fetch each project's environments + apps
+    // Count services by status from the flat apps list
     let running = 0, stopped = 0, deploying = 0;
-    await Promise.all(
-      projects.map(async (p) => {
-        try {
-          const fullProject = await coolify.getProject(p.uuid);
-          const envs = fullProject.environments ?? [];
-          await Promise.all(
-            envs.map(async (env) => {
-              try {
-                const detail = await coolify.getEnvironmentDetail(p.uuid, env.name);
-                for (const app of detail.applications ?? []) {
-                  if (app.status === 'running') running++;
-                  else if (app.status === 'stopped' || app.status === 'exited') stopped++;
-                  else if (app.status?.includes('progress') || app.status?.includes('building')) deploying++;
-                  else stopped++;
-                }
-              } catch { /* skip */ }
-            })
-          );
-        } catch { /* skip */ }
-      })
-    );
+    for (const app of apps) {
+      const status = app.status ?? '';
+      if (status.startsWith('running')) running++;
+      else if (status.includes('progress') || status.includes('building')) deploying++;
+      else stopped++;
+    }
 
     // Recent scans
     const recentScans = queryAll<{
@@ -62,7 +52,7 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
 
     res.json({
       projects: projects.length,
-      services: { running, stopped, deploying, total: running + stopped + deploying },
+      services: { running, stopped, deploying, total: apps.length },
       monitors: { up: monitorsUp, down: monitorsDown, total: monitors.length },
       recentScans: recentScans.map(s => ({
         id: s.id,
