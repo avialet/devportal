@@ -1,6 +1,6 @@
 import * as coolify from './coolify.service.js';
 import * as monitoring from './monitoring.service.js';
-import { createWorkflowFile, isRepoPrivate, addDeployKey } from './github.service.js';
+import { createWorkflowFile, isRepoPrivate, addDeployKey, branchExists, createBranch } from './github.service.js';
 import { runQuery, queryOne } from '../db/database.js';
 import { buildFqdn, ENV_NAMES, type EnvName } from '@devportal/shared';
 import { config } from '../config.js';
@@ -94,6 +94,19 @@ export async function runWizard(
         onProgress({ step: 2, label: 'Repo prive detecte, deploy key SSH ajoutee', status: 'done' });
       }
     }
+
+    // Ensure dev and staging branches exist (for existing repos that may only have main)
+    for (const branch of ['dev', 'staging']) {
+      try {
+        const exists = await branchExists(input.githubToken, repoOwner, repoName, branch);
+        if (!exists) {
+          await createBranch(input.githubToken, repoOwner, repoName, branch, 'main');
+          onProgress({ step: 2, label: `Branche ${branch} creee`, status: 'done' });
+        }
+      } catch (err) {
+        console.warn(`[Wizard] Could not create branch ${branch}:`, err);
+      }
+    }
   }
 
   // git_repository format depends on app type:
@@ -123,9 +136,12 @@ export async function runWizard(
         ? await coolify.createPrivateKeyApp({ ...baseParams, private_key_uuid: deployKeyUuid })
         : await coolify.createPublicApp(baseParams);
 
-      // Set domain via PATCH (Coolify uses 'domains' not 'fqdn')
+      // Set domain + remove default memory limits (Coolify defaults cause Docker "Minimum memory" errors)
       await coolify.updateApplication(app.uuid, {
         domains: fqdn,
+        limits_memory: '0',
+        limits_memory_swap: '0',
+        limits_memory_reservation: '0',
       });
 
       apps[envName] = { uuid: app.uuid, fqdn };
