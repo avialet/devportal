@@ -77,6 +77,7 @@ export default function ProjectDetail() {
   const [showWorkflow, setShowWorkflow] = useState(false);
   const [workflowYaml, setWorkflowYaml] = useState<string | null>(null);
   const [activeDeployment, setActiveDeployment] = useState<{ appUuid: string; deploymentUuid: string } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadProject = useCallback(async () => {
     if (!uuid) return;
@@ -103,33 +104,44 @@ export default function ProjectDetail() {
 
   async function handleDeploy(appUuid: string) {
     setActionLoading(appUuid);
+    setActionError(null);
     try {
       const result = await api.deployApp(appUuid);
+      console.log('[Deploy] response:', result);
       if (result.deployment_uuid) {
         setActiveDeployment({ appUuid, deploymentUuid: result.deployment_uuid });
+      } else {
+        setActionError(`Deploy OK mais pas de deployment_uuid: ${JSON.stringify(result)}`);
       }
       setTimeout(loadProject, 2000);
-    } catch { /* ignore */ }
-    finally { setActionLoading(null); }
+    } catch (err: any) {
+      console.error('[Deploy] error:', err);
+      setActionError(`Deploy echoue: ${err?.message ?? JSON.stringify(err)}`);
+    } finally { setActionLoading(null); }
   }
 
   async function handleStop(appUuid: string) {
     setActionLoading(appUuid);
+    setActionError(null);
     try { await api.stopApp(appUuid); setTimeout(loadProject, 2000); }
-    catch { /* ignore */ }
+    catch (err: any) { setActionError(`Stop echoue: ${err?.message ?? 'erreur'}`); }
     finally { setActionLoading(null); }
   }
 
   async function handleRestart(appUuid: string) {
     setActionLoading(appUuid);
+    setActionError(null);
     try {
       const result = await api.restartApp(appUuid);
+      console.log('[Restart] response:', result);
       if (result.deployment_uuid) {
         setActiveDeployment({ appUuid, deploymentUuid: result.deployment_uuid });
       }
       setTimeout(loadProject, 2000);
-    } catch { /* ignore */ }
-    finally { setActionLoading(null); }
+    } catch (err: any) {
+      console.error('[Restart] error:', err);
+      setActionError(`Restart echoue: ${err?.message ?? JSON.stringify(err)}`);
+    } finally { setActionLoading(null); }
   }
 
   async function loadDeployments(appUuid: string) {
@@ -268,6 +280,14 @@ export default function ProjectDetail() {
           </div>
         </div>
       </div>
+
+      {/* Action error banner */}
+      {actionError && (
+        <div className="bg-red-900/20 border border-status-error/30 text-status-error px-3 py-2 text-xs flex items-center justify-between">
+          <span>{actionError}</span>
+          <button onClick={() => setActionError(null)} className="text-status-error hover:text-red-300 ml-2">✕</button>
+        </div>
+      )}
 
       {/* Environments */}
       <div className="space-y-2">

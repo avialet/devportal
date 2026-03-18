@@ -145,15 +145,20 @@ export async function updateApplication(uuid: string, data: Record<string, unkno
 }
 
 export async function deployApplication(uuid: string): Promise<{ deployment_uuid: string }> {
-  return request<{ deployment_uuid: string }>(`/applications/${uuid}/start`);
+  // Coolify v4 uses /deploy (POST) to trigger a new build+deploy
+  return request<{ deployment_uuid: string }>(`/applications/${uuid}/deploy`, { method: 'POST' });
+}
+
+export async function startApplication(uuid: string): Promise<void> {
+  await request(`/applications/${uuid}/start`, { method: 'POST' });
 }
 
 export async function stopApplication(uuid: string): Promise<void> {
-  await request(`/applications/${uuid}/stop`);
+  await request(`/applications/${uuid}/stop`, { method: 'POST' });
 }
 
 export async function restartApplication(uuid: string): Promise<{ deployment_uuid: string }> {
-  return request<{ deployment_uuid: string }>(`/applications/${uuid}/restart`);
+  return request<{ deployment_uuid: string }>(`/applications/${uuid}/restart`, { method: 'POST' });
 }
 
 // --- Deployments ---
