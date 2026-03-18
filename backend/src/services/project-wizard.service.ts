@@ -75,6 +75,12 @@ export async function runWizard(
   // Steps 3-5: Create apps for each environment with auto-deploy config
   const apps: Partial<Record<EnvName, { uuid: string; fqdn: string }>> = {};
 
+  // For private repos, inject GitHub token into the git URL so Coolify can clone
+  let gitRepoUrl = githubUrl;
+  if (input.githubToken && githubUrl.startsWith('https://github.com/')) {
+    gitRepoUrl = githubUrl.replace('https://github.com/', `https://oauth2:${input.githubToken}@github.com/`);
+  }
+
   for (let i = 0; i < ENV_NAMES.length; i++) {
     const envName = ENV_NAMES[i];
     const stepNum = 3 + i;
@@ -86,7 +92,7 @@ export async function runWizard(
         project_uuid: project.uuid,
         server_uuid: serverUuid,
         environment_name: envName,
-        git_repository: githubUrl,
+        git_repository: gitRepoUrl,
         git_branch: branch,
         build_pack: 'nixpacks',
         ports_exposes: portsExposes,
