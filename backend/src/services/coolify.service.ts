@@ -145,9 +145,10 @@ export async function updateApplication(uuid: string, data: Record<string, unkno
 }
 
 export async function deployApplication(uuid: string): Promise<{ deployment_uuid: string }> {
-  // Coolify uses GET /deploy?uuid=...&force=true as the deploy webhook
-  // This is the same endpoint used in generated GitHub Actions workflows
-  return request<{ deployment_uuid: string }>(`/deploy?uuid=${uuid}&force=true`);
+  // Coolify GET /deploy returns { deployments: [{ deployment_uuid, message, resource_uuid }] }
+  const result = await request<{ deployments: { deployment_uuid: string }[] }>(`/deploy?uuid=${uuid}&force=true`);
+  const dep = result.deployments?.[0];
+  return { deployment_uuid: dep?.deployment_uuid ?? '' };
 }
 
 export async function startApplication(uuid: string): Promise<void> {
