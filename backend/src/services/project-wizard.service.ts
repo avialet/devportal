@@ -96,8 +96,11 @@ export async function runWizard(
     }
   }
 
-  // git_repository format: owner/repo (Coolify adds the github.com prefix)
-  const gitRepoForCoolify = repoPath;
+  // git_repository format depends on app type:
+  // - public apps: owner/repo (Coolify adds https://github.com/ prefix)
+  // - private-deploy-key apps: git@github.com:owner/repo.git (SSH URL required)
+  const gitRepoPublic = repoPath;
+  const gitRepoPrivate = `git@github.com:${repoPath}.git`;
 
   for (let i = 0; i < ENV_NAMES.length; i++) {
     const envName = ENV_NAMES[i];
@@ -110,7 +113,7 @@ export async function runWizard(
         project_uuid: project.uuid,
         server_uuid: serverUuid,
         environment_name: envName,
-        git_repository: gitRepoForCoolify,
+        git_repository: usePrivateKey ? gitRepoPrivate : gitRepoPublic,
         git_branch: branch,
         build_pack: 'nixpacks',
         ports_exposes: portsExposes,
