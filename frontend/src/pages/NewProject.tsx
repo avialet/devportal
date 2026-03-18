@@ -249,7 +249,7 @@ export default function NewProject() {
       </p>
 
       {/* GitHub status */}
-      {hasGitHub && (
+      {hasGitHub ? (
         <div className="panel px-3 py-2 mb-3 flex items-center justify-between">
           <span className="text-2xs text-txt-muted">
             GitHub: <span className="text-txt-primary font-medium">{ghStatus.login}</span>
@@ -263,6 +263,15 @@ export default function NewProject() {
           >
             Deconnecter
           </button>
+        </div>
+      ) : (
+        <div className="panel px-3 py-2 mb-3 flex items-center justify-between bg-yellow-900/10 border-yellow-500/30">
+          <span className="text-2xs text-txt-muted">
+            Token GitHub non configure — seule l'URL manuelle est disponible.
+          </span>
+          <Link to="/settings" className="text-2xs text-accent hover:text-accent-hover font-medium">
+            Configurer dans mon profil
+          </Link>
         </div>
       )}
 
