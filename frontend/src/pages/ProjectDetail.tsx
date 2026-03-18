@@ -249,6 +249,34 @@ export default function ProjectDetail() {
                 + Monitors
               </button>
             )}
+            {/* Fix git auth for private repos */}
+            {sortedEnvs.some(e => e.apps.some(a => a.status.includes('exited') || a.status.includes('unhealthy'))) && (
+              <button
+                onClick={async () => {
+                  if (!uuid) return;
+                  setActionError(null);
+                  try {
+                    const result = await api.fixGitAuth(uuid);
+                    setActionError(null);
+                    if (result.patched.length > 0) {
+                      // Redeploy all apps after fixing
+                      for (const env of sortedEnvs) {
+                        for (const app of env.apps) {
+                          try { await api.deployApp(app.uuid); } catch { /* skip */ }
+                        }
+                      }
+                      setTimeout(loadProject, 3000);
+                    }
+                  } catch (err: any) {
+                    setActionError(err?.message ?? 'Erreur fix git auth');
+                  }
+                }}
+                className="btn-secondary"
+                title="Injecter votre token GitHub pour les repos prives et redeployer"
+              >
+                Fix Git + Redeploy
+              </button>
+            )}
             <button onClick={() => setShowEnvCompare(!showEnvCompare)} className="btn-secondary">
               {showEnvCompare ? 'Fermer' : 'Comparer'}
             </button>

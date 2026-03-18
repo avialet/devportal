@@ -153,6 +153,9 @@ export const api = {
   deleteProject(uuid: string) {
     return request<{ status: string }>(`/projects/${uuid}`, { method: 'DELETE' });
   },
+  fixGitAuth(uuid: string) {
+    return request<{ status: string; patched: string[] }>(`/projects/${uuid}/fix-git-auth`, { method: 'POST' });
+  },
 
   // Monitors
   getMonitors() {

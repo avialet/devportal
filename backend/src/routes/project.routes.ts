@@ -520,6 +520,44 @@ router.delete('/:uuid/members/:memberId', async (req: AuthRequest, res: Response
 });
 
 /**
+ * Fix private repo access: inject user's GitHub token into git_repository for all apps
+ */
+router.post('/:uuid/fix-git-auth', async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const uuid = param(req, 'uuid');
+    const dbUser = queryOne<{ github_token: string | null }>('SELECT github_token FROM users WHERE id = ?', [req.user!.id]);
+    if (!dbUser?.github_token) {
+      res.status(400).json({ error: 'no_token', message: 'Configurez votre token GitHub dans Profil d\'abord' });
+      return;
+    }
+
+    const project = await coolify.getProject(uuid);
+    const envs = project.environments ?? [];
+    const patched: string[] = [];
+
+    for (const env of envs) {
+      try {
+        const detail = await coolify.getEnvironmentDetail(uuid, env.name);
+        for (const app of detail.applications ?? []) {
+          const repo = app.git_repository ?? '';
+          // Only patch if it's a simple owner/repo format (no token already)
+          if (repo && !repo.includes('@') && !repo.startsWith('http')) {
+            const authUrl = `https://oauth2:${dbUser.github_token}@github.com/${repo}`;
+            await coolify.updateApplication(app.uuid, { git_repository: authUrl });
+            patched.push(`${env.name}/${app.uuid}`);
+          }
+        }
+      } catch { /* skip */ }
+    }
+
+    coolify.invalidateCache();
+    res.json({ status: 'ok', patched });
+  } catch (err) {
+    res.status(502).json({ error: 'error', message: String(err) });
+  }
+});
+
+/**
  * @openapi
  * /projects/{uuid}:
  *   delete:
