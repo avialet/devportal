@@ -4,6 +4,7 @@ import { api, type ProjectDetailResponse, type Deployment } from '../api/client'
 import MonitorBadge from '../components/MonitorBadge';
 import EnvVarEditor from '../components/EnvVarEditor';
 import LogViewer from '../components/LogViewer';
+import DeployLog from '../components/DeployLog';
 import PipelineView from '../components/PipelineView';
 import AutoScanConfig from '../components/AutoScanConfig';
 import ProjectMembers from '../components/ProjectMembers';
@@ -75,6 +76,7 @@ export default function ProjectDetail() {
   const [showEnvCompare, setShowEnvCompare] = useState(false);
   const [showWorkflow, setShowWorkflow] = useState(false);
   const [workflowYaml, setWorkflowYaml] = useState<string | null>(null);
+  const [activeDeployment, setActiveDeployment] = useState<{ appUuid: string; deploymentUuid: string } | null>(null);
 
   const loadProject = useCallback(async () => {
     if (!uuid) return;
@@ -101,8 +103,13 @@ export default function ProjectDetail() {
 
   async function handleDeploy(appUuid: string) {
     setActionLoading(appUuid);
-    try { await api.deployApp(appUuid); setTimeout(loadProject, 2000); }
-    catch { /* ignore */ }
+    try {
+      const result = await api.deployApp(appUuid);
+      if (result.deployment_uuid) {
+        setActiveDeployment({ appUuid, deploymentUuid: result.deployment_uuid });
+      }
+      setTimeout(loadProject, 2000);
+    } catch { /* ignore */ }
     finally { setActionLoading(null); }
   }
 
@@ -115,8 +122,13 @@ export default function ProjectDetail() {
 
   async function handleRestart(appUuid: string) {
     setActionLoading(appUuid);
-    try { await api.restartApp(appUuid); setTimeout(loadProject, 2000); }
-    catch { /* ignore */ }
+    try {
+      const result = await api.restartApp(appUuid);
+      if (result.deployment_uuid) {
+        setActiveDeployment({ appUuid, deploymentUuid: result.deployment_uuid });
+      }
+      setTimeout(loadProject, 2000);
+    } catch { /* ignore */ }
     finally { setActionLoading(null); }
   }
 
@@ -389,6 +401,16 @@ export default function ProjectDetail() {
                               <PipelineView deploymentUuid={appDeployments[0].uuid} />
                             )}
                           </div>
+                        )}
+
+                        {/* Active deployment build logs */}
+                        {activeDeployment?.appUuid === app.uuid && (
+                          <DeployLog
+                            appUuid={app.uuid}
+                            deploymentUuid={activeDeployment.deploymentUuid}
+                            onClose={() => setActiveDeployment(null)}
+                            onFinished={loadProject}
+                          />
                         )}
 
                         {showRuntimeLogs === app.uuid && <LogViewer appUuid={app.uuid} />}
