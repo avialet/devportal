@@ -51,6 +51,8 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
 
     const portalMap = new Map(portalProjects.map(p => [p.coolify_project_uuid, p]));
 
+    const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
+
     // Fetch each project sequentially to avoid Coolify rate limiting
     // (with 30s cache, only the first load is slow — subsequent loads are instant)
     const projects = [];
@@ -64,7 +66,7 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
         envs = fullProject.environments ?? [];
       } catch { /* skip */ }
 
-      // For each environment, fetch apps sequentially
+      // For each environment, fetch apps sequentially with small delay
       const apps: { env: string; uuid: string; fqdn: string | null; status: string }[] = [];
       for (const env of envs) {
         try {
@@ -80,6 +82,7 @@ router.get('/', async (_req: AuthRequest, res: Response): Promise<void> => {
             }
           }
         } catch { /* skip */ }
+        await delay(150); // Small delay between API calls to avoid rate limiting
       }
 
       // Monitor status per env (local DB only, no Coolify calls)
@@ -520,7 +523,10 @@ router.delete('/:uuid/members/:memberId', async (req: AuthRequest, res: Response
 });
 
 /**
- * Fix private repo access: inject user's GitHub token into git_repository for all apps
+ * Fix private repo access:
+ * 1. Clean broken git_repository URLs (remove embedded oauth2 tokens)
+ * 2. Add Coolify's SSH deploy key to the GitHub repo
+ * 3. Reset git_repository to clean owner/repo format
  */
 router.post('/:uuid/fix-git-auth', async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -531,32 +537,48 @@ router.post('/:uuid/fix-git-auth', async (req: AuthRequest, res: Response): Prom
       return;
     }
 
+    const { addDeployKey } = await import('../services/github.service.js');
     const project = await coolify.getProject(uuid);
     const envs = project.environments ?? [];
     const patched: string[] = [];
+
+    // Get Coolify's SSH deploy key for private repos
+    const deployKey = await coolify.getGitDeployKey();
+    const deployKeyAdded = new Set<string>();
 
     for (const env of envs) {
       try {
         const detail = await coolify.getEnvironmentDetail(uuid, env.name);
         for (const app of detail.applications ?? []) {
-          const repo = app.git_repository ?? '';
-          let authUrl: string | null = null;
-
+          let repo = app.git_repository ?? '';
           if (!repo) continue;
-          if (repo.includes(`oauth2:`)) continue; // already has token
 
-          if (!repo.startsWith('http')) {
-            // Format: owner/repo → https://oauth2:token@github.com/owner/repo
-            authUrl = `https://oauth2:${dbUser.github_token}@github.com/${repo}`;
-          } else if (repo.startsWith('https://github.com/') && !repo.includes('@')) {
-            // Format: https://github.com/owner/repo → inject token
-            authUrl = repo.replace('https://github.com/', `https://oauth2:${dbUser.github_token}@github.com/`);
+          // Extract clean owner/repo from any broken format
+          let cleanRepo = repo
+            .replace(/https:\/\/oauth2:[^@]+@github\.com\//, '')
+            .replace('https://github.com/', '')
+            .replace(/\.git$/, '');
+
+          const needsFix = repo !== cleanRepo;
+          const [owner, repoName] = cleanRepo.split('/');
+
+          // Add deploy key to GitHub repo
+          if (deployKey && owner && repoName && !deployKeyAdded.has(cleanRepo)) {
+            try {
+              await addDeployKey(dbUser.github_token!, owner, repoName, deployKey.publicKey);
+              deployKeyAdded.add(cleanRepo);
+              console.log(`[fix-git-auth] Deploy key added to ${cleanRepo}`);
+            } catch (e: any) {
+              console.warn(`[fix-git-auth] Could not add deploy key to ${cleanRepo}:`, e?.message);
+            }
           }
 
-          if (authUrl) {
-            console.log(`[fix-git-auth] Patching ${app.uuid} (${env.name}): ${repo} → ${authUrl.replace(dbUser.github_token, '***')}`);
-            await coolify.updateApplication(app.uuid, { git_repository: authUrl });
+          // Reset git_repository to clean owner/repo format
+          if (needsFix && cleanRepo.includes('/')) {
+            console.log(`[fix-git-auth] Cleaning ${app.uuid}: ${repo} -> ${cleanRepo}`);
+            await coolify.updateApplication(app.uuid, { git_repository: cleanRepo });
             patched.push(`${env.name}/${app.uuid}`);
+            await new Promise(r => setTimeout(r, 1000));
           }
         }
       } catch (e: any) {
@@ -565,7 +587,11 @@ router.post('/:uuid/fix-git-auth', async (req: AuthRequest, res: Response): Prom
     }
 
     coolify.invalidateCache();
-    res.json({ status: 'ok', patched });
+    res.json({
+      status: 'ok',
+      patched,
+      deployKeysAdded: Array.from(deployKeyAdded),
+    });
   } catch (err) {
     res.status(502).json({ error: 'error', message: String(err) });
   }

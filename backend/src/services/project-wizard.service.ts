@@ -1,6 +1,6 @@
 import * as coolify from './coolify.service.js';
 import * as monitoring from './monitoring.service.js';
-import { createWorkflowFile } from './github.service.js';
+import { createWorkflowFile, isRepoPrivate, addDeployKey } from './github.service.js';
 import { runQuery, queryOne } from '../db/database.js';
 import { buildFqdn, ENV_NAMES, type EnvName } from '@devportal/shared';
 import { config } from '../config.js';
@@ -75,11 +75,29 @@ export async function runWizard(
   // Steps 3-5: Create apps for each environment with auto-deploy config
   const apps: Partial<Record<EnvName, { uuid: string; fqdn: string }>> = {};
 
-  // For private repos, inject GitHub token into the git URL so Coolify can clone
-  let gitRepoUrl = githubUrl;
-  if (input.githubToken && githubUrl.startsWith('https://github.com/')) {
-    gitRepoUrl = githubUrl.replace('https://github.com/', `https://oauth2:${input.githubToken}@github.com/`);
+  // Extract owner/repo from GitHub URL (e.g. https://github.com/avialet/paperFlow -> avialet/paperFlow)
+  const repoPath = githubUrl.replace('https://github.com/', '').replace(/\.git$/, '');
+  const [repoOwner, repoName] = repoPath.split('/');
+
+  // Check if repo is private and set up deploy key if needed
+  let usePrivateKey = false;
+  let deployKeyUuid: string | null = null;
+  if (input.githubToken && repoOwner && repoName) {
+    const isPrivate = await isRepoPrivate(input.githubToken, repoOwner, repoName);
+    if (isPrivate) {
+      const deployKey = await coolify.getGitDeployKey();
+      if (deployKey) {
+        // Add Coolify's SSH deploy key to the GitHub repo
+        await addDeployKey(input.githubToken, repoOwner, repoName, deployKey.publicKey);
+        deployKeyUuid = deployKey.uuid;
+        usePrivateKey = true;
+        onProgress({ step: 2, label: 'Repo prive detecte, deploy key SSH ajoutee', status: 'done' });
+      }
+    }
   }
+
+  // git_repository format: owner/repo (Coolify adds the github.com prefix)
+  const gitRepoForCoolify = repoPath;
 
   for (let i = 0; i < ENV_NAMES.length; i++) {
     const envName = ENV_NAMES[i];
@@ -88,15 +106,19 @@ export async function runWizard(
     const fqdn = buildFqdn(name, envName);
     onProgress({ step: stepNum, label: `App ${envName} (${branch})`, status: 'running' });
     try {
-      const app = await coolify.createPublicApp({
+      const baseParams: coolify.CreateAppParams = {
         project_uuid: project.uuid,
         server_uuid: serverUuid,
         environment_name: envName,
-        git_repository: gitRepoUrl,
+        git_repository: gitRepoForCoolify,
         git_branch: branch,
         build_pack: 'nixpacks',
         ports_exposes: portsExposes,
-      });
+      };
+
+      const app = usePrivateKey && deployKeyUuid
+        ? await coolify.createPrivateKeyApp({ ...baseParams, private_key_uuid: deployKeyUuid })
+        : await coolify.createPublicApp(baseParams);
 
       // Set domain via PATCH (Coolify uses 'domains' not 'fqdn')
       await coolify.updateApplication(app.uuid, {

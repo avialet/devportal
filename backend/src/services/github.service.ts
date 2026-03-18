@@ -322,3 +322,40 @@ export async function validateToken(token: string): Promise<{ valid: boolean; lo
     return { valid: false, error: err.message };
   }
 }
+
+/**
+ * Add an SSH deploy key to a GitHub repository.
+ * Returns true if added, false if already exists or failed.
+ */
+export async function addDeployKey(
+  token: string,
+  owner: string,
+  repo: string,
+  publicKey: string,
+  title = 'Coolify Deploy Key'
+): Promise<boolean> {
+  try {
+    await ghRequest(`/repos/${owner}/${repo}/keys`, token, {
+      method: 'POST',
+      body: JSON.stringify({ title, key: publicKey, read_only: true }),
+    });
+    return true;
+  } catch (err: any) {
+    // 422 = key already exists
+    if (err.message?.includes('422')) return true;
+    console.warn(`[GitHub] Failed to add deploy key to ${owner}/${repo}:`, err.message);
+    return false;
+  }
+}
+
+/**
+ * Check if a GitHub repo is private
+ */
+export async function isRepoPrivate(token: string, owner: string, repo: string): Promise<boolean> {
+  try {
+    const data = await ghRequest<{ private: boolean }>(`/repos/${owner}/${repo}`, token);
+    return data.private;
+  } catch {
+    return false;
+  }
+}

@@ -22,8 +22,9 @@ async function request<T>(path: string, options: RequestInit = {}, retries = 5):
     apiCache.clear();
   }
 
-  // Serve from cache for GET requests
-  if (method === 'GET') {
+  // Serve from cache for GET requests (exclude action endpoints like /deploy)
+  const isActionGet = path.startsWith('/deploy');
+  if (method === 'GET' && !isActionGet) {
     const cached = apiCache.get(path);
     if (cached && cached.expires > Date.now()) {
       return cached.data as T;
@@ -68,8 +69,8 @@ async function request<T>(path: string, options: RequestInit = {}, retries = 5):
     const text = await res.text();
     const result = text ? JSON.parse(text) : {} as T;
 
-    // Store in cache for GET requests
-    if (method === 'GET') {
+    // Store in cache for GET requests (exclude action endpoints)
+    if (method === 'GET' && !isActionGet) {
       apiCache.set(path, { data: result, expires: Date.now() + CACHE_TTL });
     }
 
@@ -167,6 +168,24 @@ export async function createPublicApp(params: CreateAppParams): Promise<CoolifyA
     method: 'POST',
     body: JSON.stringify(params),
   });
+}
+
+export interface CreatePrivateKeyAppParams extends CreateAppParams {
+  private_key_uuid: string;
+}
+
+export async function createPrivateKeyApp(params: CreatePrivateKeyAppParams): Promise<CoolifyApp> {
+  return request<CoolifyApp>('/applications/private-deploy-key', {
+    method: 'POST',
+    body: JSON.stringify(params),
+  });
+}
+
+// Get the first git-related SSH key from Coolify
+export async function getGitDeployKey(): Promise<{ uuid: string; publicKey: string } | null> {
+  const keys = await request<{ uuid: string; public_key: string; is_git_related: boolean }[]>('/security/keys');
+  const gitKey = keys.find(k => k.is_git_related);
+  return gitKey ? { uuid: gitKey.uuid, publicKey: gitKey.public_key } : null;
 }
 
 export async function deleteApplication(uuid: string): Promise<void> {

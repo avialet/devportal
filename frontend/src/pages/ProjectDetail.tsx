@@ -78,6 +78,7 @@ export default function ProjectDetail() {
   const [workflowYaml, setWorkflowYaml] = useState<string | null>(null);
   const [activeDeployment, setActiveDeployment] = useState<{ appUuid: string; deploymentUuid: string } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [fixingGit, setFixingGit] = useState(false);
 
   const loadProject = useCallback(async () => {
     if (!uuid) return;
@@ -253,28 +254,46 @@ export default function ProjectDetail() {
             {sortedEnvs.some(e => e.apps.some(a => a.status.includes('exited') || a.status.includes('unhealthy'))) && (
               <button
                 onClick={async () => {
-                  if (!uuid) return;
+                  if (!uuid || fixingGit) return;
+                  setFixingGit(true);
                   setActionError(null);
                   try {
                     const result = await api.fixGitAuth(uuid);
-                    setActionError(null);
                     if (result.patched.length > 0) {
-                      // Redeploy all apps after fixing
+                      setActionError(`Git fixe sur ${result.patched.length} app(s). Redeploy en cours...`);
+                      // Redeploy all apps after fixing — with delay between each to avoid 429
                       for (const env of sortedEnvs) {
                         for (const app of env.apps) {
-                          try { await api.deployApp(app.uuid); } catch { /* skip */ }
+                          try {
+                            const dep = await api.deployApp(app.uuid);
+                            if (dep.deployment_uuid) {
+                              setActiveDeployment({ appUuid: app.uuid, deploymentUuid: dep.deployment_uuid });
+                            }
+                          } catch { /* skip */ }
+                          // Wait 3s between deploys to avoid rate limiting
+                          await new Promise(r => setTimeout(r, 3000));
                         }
                       }
-                      setTimeout(loadProject, 3000);
+                      setTimeout(loadProject, 5000);
+                    } else {
+                      setActionError('Aucune app a patcher. Token GitHub configure ?');
                     }
                   } catch (err: any) {
                     setActionError(err?.message ?? 'Erreur fix git auth');
+                  } finally {
+                    setFixingGit(false);
                   }
                 }}
-                className="btn-secondary"
+                disabled={fixingGit}
+                className="btn-secondary disabled:opacity-50"
                 title="Injecter votre token GitHub pour les repos prives et redeployer"
               >
-                Fix Git + Redeploy
+                {fixingGit ? (
+                  <span className="flex items-center gap-1">
+                    <span className="w-3 h-3 border border-current border-t-transparent animate-spin" />
+                    Fixing...
+                  </span>
+                ) : 'Fix Git + Redeploy'}
               </button>
             )}
             <button onClick={() => setShowEnvCompare(!showEnvCompare)} className="btn-secondary">
